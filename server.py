@@ -324,9 +324,9 @@ def chat():
     messages = data.get("messages", [])
     llm = data.get("llm", "gemini")
 
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    claude_key = os.getenv("ANTHROPIC_API_KEY", "")
-    firecrawl_key = os.getenv("FIRECRAWL_API_KEY", "")
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip("'\"")
+    claude_key = os.getenv("ANTHROPIC_API_KEY", "").strip().strip("'\"")
+    firecrawl_key = os.getenv("FIRECRAWL_API_KEY", "").strip().strip("'\"")
 
     try:
         if llm == "claude":
