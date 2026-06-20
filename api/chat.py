@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # ─── Load Book Skills Knowledge Base ────────────────────────────────────────
 def load_book_knowledge():
@@ -217,7 +217,7 @@ def firecrawl_search(query, api_key):
                 "Content-Type": "application/json",
             },
             json={"query": query, "limit": 5},
-            timeout=30,
+            timeout=15,
         )
 
         if resp.status_code != 200:
@@ -282,8 +282,8 @@ def call_gemini(messages, api_key, firecrawl_key):
         "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192},
     }
 
-    for _ in range(5):
-        resp = http.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=120)
+    for _ in range(3):
+        resp = http.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=45)
         if resp.status_code != 200:
             raise Exception("Gemini API error " + str(resp.status_code) + ": " + resp.text[:300])
 
@@ -306,6 +306,11 @@ def call_gemini(messages, api_key, firecrawl_key):
             meta["firecrawl_queries"].append(query_str)
 
             payload["contents"].append({"role": "model", "parts": [{"functionCall": fc}]})
+
+            # Si Firecrawl falló, avisarle a Gemini para que responda sin datos web
+            if "error" in search_result:
+                search_result["nota"] = "La búsqueda web falló. Respondé con tu conocimiento base sin datos en tiempo real."
+
             payload["contents"].append({"role": "user", "parts": [{"functionResponse": {"name": "search_web", "response": search_result}}]})
             continue
 
@@ -346,8 +351,8 @@ def call_claude(messages, api_key, firecrawl_key):
     payload = {"model": claude_model, "max_tokens": 8192, "system": SYSTEM_PROMPT, "tools": tools, "messages": claude_msgs}
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
 
-    for _ in range(5):
-        resp = http.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=120)
+    for _ in range(3):
+        resp = http.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=45)
         if resp.status_code != 200:
             raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
 
