@@ -204,6 +204,38 @@ SEARCH_QUERY_DESC = (
 )
 
 
+# ─── Serper (Google Search) — fallback ─────────────────────────────────────
+def serper_search(query, api_key):
+    if not api_key:
+        return {"error": "SERPER_API_KEY no configurada."}, 0
+    try:
+        resp = http.post(
+            "https://google.serper.dev/search",
+            headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+            json={"q": query, "num": 5, "gl": "ar", "hl": "es"},
+            timeout=12,
+        )
+        if resp.status_code != 200:
+            return {"error": f"Serper error {resp.status_code}"}, 0
+        data = resp.json()
+        results = []
+        for item in data.get("organic", []):
+            results.append({
+                "title": item.get("title", ""),
+                "url": item.get("link", ""),
+                "content": item.get("snippet", ""),
+            })
+        for item in data.get("answerBox", [{}]) if isinstance(data.get("answerBox"), list) else ([data["answerBox"]] if data.get("answerBox") else []):
+            results.insert(0, {
+                "title": item.get("title", "Answer Box"),
+                "url": item.get("link", ""),
+                "content": item.get("answer", "") or item.get("snippet", ""),
+            })
+        return {"results": results, "source": "serper"}, len(results)
+    except Exception as e:
+        return {"error": f"Serper error: {str(e)}"}, 0
+
+
 # ─── Firecrawl Web Search ───────────────────────────────────────────────────
 def firecrawl_search(query, api_key):
     if not api_key:
@@ -241,13 +273,26 @@ def firecrawl_search(query, api_key):
                 "url": item.get("url", ""),
                 "content": content[:3000],
             })
-        return {"results": results}, len(results)
+        return {"results": results, "source": "firecrawl"}, len(results)
     except Exception as e:
-        return {"error": f"Error en busqueda web: {str(e)}"}, 0
+        return {"error": f"Firecrawl error: {str(e)}"}, 0
+
+
+# ─── Search with fallback ────────────────────────────────────────────────────
+def search_web(query, firecrawl_key, serper_key):
+    result, pages = firecrawl_search(query, firecrawl_key)
+    if pages > 0:
+        return result, pages
+    # Firecrawl falló → intentar con Serper
+    result2, pages2 = serper_search(query, serper_key)
+    if pages2 > 0:
+        return result2, pages2
+    # Ambos fallaron
+    return {"error": "Búsqueda web no disponible (Firecrawl y Serper fallaron).", "nota": "Respondé con tu conocimiento base sin datos en tiempo real."}, 0
 
 
 # ─── Gemini API ─────────────────────────────────────────────────────────────
-def call_gemini(messages, api_key, firecrawl_key):
+def call_gemini(messages, api_key, firecrawl_key, serper_key):
     url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + api_key
 
     meta = {
@@ -299,18 +344,13 @@ def call_gemini(messages, api_key, firecrawl_key):
 
         if fc and fc["name"] == "search_web":
             query_str = fc["args"]["query"]
-            search_result, pages = firecrawl_search(query_str, firecrawl_key)
+            search_result, pages = search_web(query_str, firecrawl_key, serper_key)
             meta["firecrawl_used"] = True
             meta["firecrawl_searches"] += 1
             meta["firecrawl_pages"] += pages
             meta["firecrawl_queries"].append(query_str)
 
             payload["contents"].append({"role": "model", "parts": [{"functionCall": fc}]})
-
-            # Si Firecrawl falló, avisarle a Gemini para que responda sin datos web
-            if "error" in search_result:
-                search_result["nota"] = "La búsqueda web falló. Respondé con tu conocimiento base sin datos en tiempo real."
-
             payload["contents"].append({"role": "user", "parts": [{"functionResponse": {"name": "search_web", "response": search_result}}]})
             continue
 
@@ -321,7 +361,7 @@ def call_gemini(messages, api_key, firecrawl_key):
 
 
 # ─── Claude API ─────────────────────────────────────────────────────────────
-def call_claude(messages, api_key, firecrawl_key):
+def call_claude(messages, api_key, firecrawl_key, serper_key):
     claude_model = "claude-sonnet-4-20250514"
     meta = {
         "model": claude_model,
@@ -365,7 +405,7 @@ def call_claude(messages, api_key, firecrawl_key):
             tool_results = []
             for tb in tool_blocks:
                 if tb["name"] == "search_web":
-                    sr, pages = firecrawl_search(tb["input"]["query"], firecrawl_key)
+                    sr, pages = search_web(tb["input"]["query"], firecrawl_key, serper_key)
                     meta["firecrawl_used"] = True
                     meta["firecrawl_searches"] += 1
                     meta["firecrawl_pages"] += pages
@@ -392,16 +432,17 @@ def chat():
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip("'\"")
     claude_key = os.getenv("ANTHROPIC_API_KEY", "").strip().strip("'\"")
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY", "").strip().strip("'\"")
+    serper_key = os.getenv("SERPER_API_KEY", "").strip().strip("'\"")
 
     try:
         if llm == "claude":
             if not claude_key:
                 return jsonify({"error": "ANTHROPIC_API_KEY no configurada"}), 400
-            result = call_claude(messages, claude_key, firecrawl_key)
+            result = call_claude(messages, claude_key, firecrawl_key, serper_key)
         else:
             if not gemini_key:
                 return jsonify({"error": "GEMINI_API_KEY no configurada"}), 400
-            result = call_gemini(messages, gemini_key, firecrawl_key)
+            result = call_gemini(messages, gemini_key, firecrawl_key, serper_key)
 
         return jsonify({"response": result["response"], "meta": result["meta"]})
 
