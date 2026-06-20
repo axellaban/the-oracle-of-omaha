@@ -280,15 +280,16 @@ def firecrawl_search(query, api_key):
 
 # ─── Search with fallback ────────────────────────────────────────────────────
 def search_web(query, firecrawl_key, serper_key):
-    result, pages = firecrawl_search(query, firecrawl_key)
+    # Serper primero: rápido, ideal para cotizaciones y contexto macro
+    result, pages = serper_search(query, serper_key)
     if pages > 0:
         return result, pages
-    # Firecrawl falló → intentar con Serper
-    result2, pages2 = serper_search(query, serper_key)
+    # Serper falló → Firecrawl para mayor profundidad de contenido
+    result2, pages2 = firecrawl_search(query, firecrawl_key)
     if pages2 > 0:
         return result2, pages2
     # Ambos fallaron
-    return {"error": "Búsqueda web no disponible (Firecrawl y Serper fallaron).", "nota": "Respondé con tu conocimiento base sin datos en tiempo real."}, 0
+    return {"error": "Búsqueda web no disponible (Serper y Firecrawl fallaron).", "nota": "Respondé con tu conocimiento base sin datos en tiempo real."}, 0
 
 
 # ─── Gemini API ─────────────────────────────────────────────────────────────
