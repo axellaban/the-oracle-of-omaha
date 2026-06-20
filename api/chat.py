@@ -252,6 +252,7 @@ def call_claude(messages, api_key, firecrawl_key):
 
 # ─── Route ──────────────────────────────────────────────────────────────────
 @app.route("/api/chat", methods=["POST"])
+@app.route("/", methods=["POST"])
 def chat():
     data = request.json
     messages = data.get("messages", [])
