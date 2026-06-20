@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+.firecrawl/
+skills de libros/
+node_modules/
+.vercel/

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oracle of Omaha - Consejos de Inversión</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background-color: #ffffff;
+            overflow-x: hidden;
+            transition: background-color 0.3s;
+            color: #202124;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Product+Sans&display=swap');
+        .logo-text {
+            font-family: 'Product Sans', Arial, sans-serif;
+            letter-spacing: -2.5px;
+        }
+
+        .c-blue { color: #4285F4; }
+        .c-red { color: #EA4335; }
+        .c-yellow { color: #FBBC05; }
+        .c-green { color: #34A853; }
+
+        #main-container {
+            display: flex;
+            flex-direction: column;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: 100vh;
+        }
+
+        .state-home {
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            padding-bottom: 12vh;
+        }
+
+        .state-home #header-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .state-home #logo-container {
+            font-size: 5rem;
+            margin-bottom: 35px;
+            text-align: center;
+            line-height: 1.1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .state-home #search-wrapper {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .state-chat {
+            justify-content: flex-start;
+            align-items: stretch;
+        }
+
+        .state-chat #header-area {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 16px 30px;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+
+        .state-chat #logo-container {
+            font-size: 2.2rem;
+            margin-bottom: 0;
+            margin-right: 40px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .state-chat #logo-container:hover { transform: scale(1.02); }
+
+        .state-chat #search-wrapper {
+            flex-grow: 1;
+            max-width: 720px;
+        }
+
+        .state-chat #buttons-container { display: none; }
+
+        .search-bar {
+            border: 1px solid #dfe1e5;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.04);
+            border-radius: 24px;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .search-bar:hover, .search-bar:focus-within {
+            box-shadow: 0 4px 12px rgba(32,33,36,.12);
+            border-color: rgba(223,225,229,0);
+            transform: translateY(-1px);
+        }
+
+        .search-bar input { font-size: 16px; }
+
+        .g-button {
+            background-color: #f8f9fa;
+            border: 1px solid #f8f9fa;
+            border-radius: 6px;
+            color: #3c4043;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 14px;
+            margin: 11px 6px;
+            padding: 0 20px;
+            line-height: 27px;
+            height: 40px;
+            min-width: 54px;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+
+        .g-button:hover {
+            box-shadow: 0 1px 3px rgba(0,0,0,.1);
+            background-color: #f8f9fa;
+            border: 1px solid #dadce0;
+            color: #202124;
+        }
+
+        #chat-area {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            flex-grow: 1;
+        }
+
+        .state-chat #chat-area { display: flex; }
+
+        .message {
+            margin-bottom: 30px;
+            max-width: 100%;
+            line-height: 1.6;
+            animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(15px);
+        }
+
+        @keyframes slideUpFade {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .user-message .content {
+            background-color: #0b57d0;
+            color: #ffffff;
+            padding: 14px 22px;
+            border-radius: 22px 22px 4px 22px;
+            font-size: 15px;
+            max-width: 85%;
+            box-shadow: 0 2px 8px rgba(11, 87, 208, 0.15);
+        }
+
+        .ai-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 18px;
+        }
+
+        .ai-avatar {
+            min-width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1a73e8, #0b57d0);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+            flex-shrink: 0;
+            margin-top: 2px;
+            box-shadow: 0 3px 8px rgba(26, 115, 232, 0.25);
+        }
+
+        .ai-message .content {
+            background-color: #f0f4f9;
+            color: #1f1f1f;
+            padding: 18px 24px;
+            border-radius: 22px 22px 22px 6px;
+            font-size: 15.5px;
+            width: fit-content;
+            max-width: 88%;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+
+        /* Metadata bar below AI responses */
+        .response-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+            margin-left: 60px;
+            padding: 6px 14px;
+            font-size: 11.5px;
+            color: #9aa0a6;
+            background: rgba(0,0,0,0.02);
+            border-radius: 8px;
+            width: fit-content;
+            animation: slideUpFade 0.3s ease forwards;
+            opacity: 0;
+        }
+        .response-meta .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .response-meta .meta-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #dadce0;
+        }
+        .response-meta .firecrawl-badge {
+            color: #e8710a;
+            font-weight: 500;
+        }
+
+        .typing-wrapper {
+            display: none;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 16px 24px;
+            background-color: #f0f4f9;
+            border-radius: 22px 22px 22px 6px;
+            width: fit-content;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background-color: #1a73e8;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+            opacity: 0.7;
+        }
+
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .markdown-text { font-size: 15px; line-height: 1.7; }
+        .markdown-text p { margin-bottom: 1em; }
+        .markdown-text p:last-child { margin-bottom: 0; }
+        .markdown-text strong { color: #000000; font-weight: 600; }
+        .markdown-text em { color: #444; }
+        .markdown-text h1, .markdown-text h2, .markdown-text h3 { font-weight: 600; margin: 1.2em 0 0.6em; color: #1a1a1a; }
+        .markdown-text h2 { font-size: 1.2em; }
+        .markdown-text h3 { font-size: 1.1em; }
+        .markdown-text ul, .markdown-text ol { margin-left: 24px; margin-bottom: 1em; }
+        .markdown-text ul { list-style-type: disc; }
+        .markdown-text ol { list-style-type: decimal; }
+        .markdown-text li { margin-bottom: 0.4em; padding-left: 4px; }
+        .markdown-text blockquote { 
+            border-left: 4px solid #1a73e8; 
+            padding: 12px 18px;
+            color: #444746; 
+            font-style: italic; 
+            margin: 1em 0; 
+            background-color: rgba(26, 115, 232, 0.05);
+            border-radius: 0 8px 8px 0;
+        }
+        .markdown-text code {
+            background: #e8eaed;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+        }
+        .markdown-text pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+        .markdown-text pre code { background: transparent; padding: 0; color: inherit; }
+        .markdown-text table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 14px; }
+        .markdown-text th, .markdown-text td { border: 1px solid #dadce0; padding: 8px 12px; text-align: left; }
+        .markdown-text th { background: #f0f4f9; font-weight: 600; }
+        .markdown-text hr { border: none; border-top: 1px solid #dadce0; margin: 1.5em 0; }
+
+        #footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #f2f2f2;
+            color: #70757a;
+            font-size: 14px;
+            padding: 15px 30px;
+            text-align: left;
+            border-top: 1px solid #dadce0;
+            transition: opacity 0.3s;
+        }
+        .state-chat #footer { opacity: 0; pointer-events: none; }
+
+        @media (max-width: 600px) {
+            .state-home #logo-container { font-size: 3.5rem; }
+            .state-chat #header-area { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
+            .state-chat #logo-container { margin-bottom: 12px; font-size: 1.8rem; }
+            .state-chat #search-wrapper { width: 100%; }
+            .user-message .content { max-width: 95%; border-radius: 18px 18px 4px 18px; }
+            .ai-message .content { max-width: 95%; border-radius: 18px 18px 18px 4px; }
+            #chat-area { padding: 20px 15px; }
+            .response-meta { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-container" class="state-home">
+        <div id="header-area" class="w-full">
+            <div id="logo-container" class="logo-text font-bold text-center select-none" onclick="resetToHome()">
+                <span class="c-blue">O</span><span class="c-red">r</span><span class="c-yellow">a</span><span class="c-blue">c</span><span class="c-green">l</span><span class="c-red">e</span> <span class="c-blue">o</span><span class="c-red">f</span> <span class="c-yellow">O</span><span class="c-blue">m</span><span class="c-green">a</span><span class="c-red">h</span><span class="c-yellow">a</span>
+            </div>
+
+            <div id="search-wrapper" class="flex flex-col items-center">
+                <div class="search-bar w-full flex items-center px-4 py-3 bg-white">
+                    <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-gray-400 mr-3">
+                        <path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+                    </svg>
+                    <input type="text" id="query-input" class="w-full outline-none text-base text-gray-800" 
+                           placeholder="Pregunta sobre inversiones..." autocomplete="off">
+                    <button id="clear-btn" class="hidden text-gray-500 hover:text-gray-700 p-1" onclick="clearInput()">
+                        <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5">
+                            <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="buttons-container" class="mt-6 flex justify-center space-x-2">
+                    <button class="g-button" onclick="submitQuery()">Pedir Consejo</button>
+                    <button class="g-button" onclick="feelingLucky()">Me siento prudente</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-area">
+            <div id="chat-history" class="flex flex-col"></div>
+            <div id="loading-indicator" class="typing-wrapper">
+                <div class="ai-avatar opacity-80 mt-1">&#127963;&#65039;</div>
+                <div class="typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer">
+        Berkshire Hathaway Virtual Advisor &bull; Omaha, Nebraska
+    </div>
+
+    <script>
+        let chatHistory = [];
+        let isChatMode = false;
+        let isWaitingForResponse = false;
+
+        const mainContainer = document.getElementById('main-container');
+        const queryInput = document.getElementById('query-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const chatHistoryContainer = document.getElementById('chat-history');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        marked.setOptions({ breaks: true, gfm: true });
+
+        const luckyQueries = [
+            "¿Cuál es la regla número 1 de la inversión?",
+            "¿Qué opinan sobre invertir en Bitcoin u otras criptomonedas?",
+            "Tengo 25 años y no sé nada de finanzas. ¿Dónde meto mis ahorros?",
+            "¿Cómo sé si una acción está barata o cara?",
+            "¿Debería intentar predecir lo que hará el mercado el próximo año?",
+            "Explícame el concepto de 'margen de seguridad' como si fuera un niño de 10 años.",
+            "¿Qué es un foso económico y por qué es tan importante?",
+        ];
+
+        queryInput.addEventListener('input', () => {
+            clearBtn.style.display = queryInput.value.trim().length > 0 ? 'block' : 'none';
+        });
+        queryInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') submitQuery(); });
+
+        function clearInput() {
+            queryInput.value = '';
+            clearBtn.style.display = 'none';
+            queryInput.focus();
+        }
+
+        function enterChatMode() {
+            if (!isChatMode) {
+                isChatMode = true;
+                mainContainer.classList.remove('state-home');
+                mainContainer.classList.add('state-chat');
+                document.title = "Oracle of Omaha - Resultados";
+            }
+        }
+
+        function resetToHome() {
+            if (isWaitingForResponse) return;
+            isChatMode = false;
+            mainContainer.classList.remove('state-chat');
+            mainContainer.classList.add('state-home');
+            chatHistory = [];
+            chatHistoryContainer.innerHTML = '';
+            clearInput();
+            document.title = "Oracle of Omaha - Consejos de Inversión";
+        }
+
+        function feelingLucky() {
+            queryInput.value = luckyQueries[Math.floor(Math.random() * luckyQueries.length)];
+            submitQuery();
+        }
+
+        async function submitQuery() {
+            const query = queryInput.value.trim();
+            if (!query || isWaitingForResponse) return;
+
+            enterChatMode();
+            appendMessage('user', query);
+            chatHistory.push({ role: "user", parts: [{ text: query }] });
+            queryInput.value = '';
+            clearBtn.style.display = 'none';
+            setLoading(true);
+            await fetchAIResponse();
+        }
+
+        function appendMessage(role, text, meta) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + (role === 'user' ? 'user-message' : 'ai-message');
+
+            if (role === 'user') {
+                msgDiv.innerHTML = '<div class="content">' + escapeHTML(text) + '</div>';
+            } else {
+                const renderedHTML = marked.parse(text);
+                msgDiv.innerHTML =
+                    '<div class="ai-avatar">&#127963;&#65039;</div>' +
+                    '<div class="content markdown-text">' + renderedHTML + '</div>';
+            }
+            chatHistoryContainer.appendChild(msgDiv);
+
+            // Add metadata bar for AI responses
+            if (role === 'ai' && meta) {
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'response-meta';
+
+                let metaHTML = '<span class="meta-item">&#129302; ' + escapeHTML(meta.model || 'unknown') + '</span>';
+
+                if (meta.firecrawl_used) {
+                    metaHTML += '<span class="meta-dot"></span>';
+                    metaHTML += '<span class="meta-item firecrawl-badge">&#128293; Firecrawl: ' +
+                        meta.firecrawl_searches + (meta.firecrawl_searches === 1 ? ' búsqueda' : ' búsquedas') +
+                        ' &middot; ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' página' : ' páginas') +
+                        ' analizadas</span>';
+                } else {
+                    metaHTML += '<span class="meta-dot"></span>';
+                    metaHTML += '<span class="meta-item">Sin búsqueda web</span>';
+                }
+
+                metaDiv.innerHTML = metaHTML;
+                chatHistoryContainer.appendChild(metaDiv);
+            }
+
+            scrollToBottom();
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+            );
+        }
+
+        function scrollToBottom() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        function setLoading(isLoading) {
+            isWaitingForResponse = isLoading;
+            loadingIndicator.style.display = isLoading ? 'flex' : 'none';
+            queryInput.disabled = isLoading;
+            if (isLoading) scrollToBottom(); else queryInput.focus();
+        }
+
+        async function fetchAIResponse() {
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: chatHistory, llm: 'gemini' }),
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Error del servidor: ' + response.status);
+
+                const aiText = result.response;
+                const meta = result.meta || null;
+                chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                appendMessage('ai', aiText, meta);
+
+            } catch (error) {
+                console.error("Error al contactar al Oráculo:", error);
+                appendMessage('ai', "El mercado está cerrado ahora mismo o tuvimos un problema de comunicación. Intenta preguntar de nuevo, pero recuerda, la paciencia es clave en la inversión y en la tecnología.");
+                chatHistory.pop();
+            } finally {
+                setLoading(false);
+            }
+        }
+    </script>
+</body>
+</html>
