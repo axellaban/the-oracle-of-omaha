@@ -218,7 +218,7 @@
             align-items: center;
             gap: 12px;
             margin-top: 8px;
-            margin-left: 60px;
+            margin-left: 0;
             padding: 6px 14px;
             font-size: 11.5px;
             color: #9aa0a6;
@@ -346,7 +346,7 @@
             padding: 4px 10px;
             background: rgba(232, 113, 10, 0.08);
             border-radius: 12px;
-            margin-left: 60px;
+            margin-left: 0;
             margin-bottom: 6px;
             animation: pulse 1.5s ease-in-out infinite;
         }
@@ -403,7 +403,6 @@
         <div id="chat-area">
             <div id="chat-history" class="flex flex-col"></div>
             <div id="loading-indicator" class="typing-wrapper">
-                <div class="ai-avatar opacity-80 mt-1">&#127963;&#65039;</div>
                 <div class="typing-indicator">
                     <span></span><span></span><span></span>
                 </div>
@@ -411,9 +410,7 @@
         </div>
     </div>
 
-    <div id="footer">
-        Asesor Financiero IA &bull; Mercado Argentino
-    </div>
+    <div id="footer"></div>
 
     <script>
         let chatHistory = [];
@@ -548,7 +545,6 @@
             } else {
                 const renderedHTML = marked.parse(text);
                 msgDiv.innerHTML =
-                    '<div class="ai-avatar">&#127963;&#65039;</div>' +
                     '<div class="content markdown-text">' + renderedHTML + '</div>';
             }
             chatHistoryContainer.appendChild(msgDiv);
