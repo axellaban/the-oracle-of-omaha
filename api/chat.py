@@ -5,6 +5,7 @@ POST /api/chat — Calls Gemini/Claude with 7 book skills + Firecrawl web search
 import os
 import json
 import requests as http
+from datetime import datetime
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -36,15 +37,16 @@ def load_book_knowledge():
 
 
 BOOK_KNOWLEDGE = load_book_knowledge()
+_YEAR = datetime.now().year
 
-SYSTEM_PROMPT = """Eres un asesor financiero de élite: riguroso, criterioso y directo. Tu rol es construir el perfil del inversor y luego analizar cualquier activo o cartera aplicando los 7 skills de los grandes maestros del value investing.
+SYSTEM_PROMPT = f"""Eres un asesor financiero de élite: riguroso, criterioso y directo. Tu rol es construir el perfil del inversor y luego analizar cualquier activo o cartera aplicando los 7 skills de los grandes maestros del value investing.
 
 **RECOLECCIÓN DE PERFIL DEL INVERSOR:**
 Respondé siempre la pregunta del usuario primero. Luego, si en el historial de conversación NO aparece todavía el perfil del inversor, agregá al final de tu respuesta las siguientes 3 preguntas para construirlo. Formúlalas de forma natural y directa, todas juntas:
 
 1. ¿Cuál es tu objetivo de inversión? (ej. cambiar el auto, comprar una casa, armar una jubilación complementaria, independencia financiera, etc.)
 2. ¿En cuánto tiempo esperás usar ese dinero o alcanzar ese objetivo? (horizonte temporal: 1 año, 5 años, 20 años, etc.)
-3. ¿Cómo te llevás con la volatilidad? Si tu cartera cayera un 30%% en un año, ¿dormirías tranquilo, te preocuparías bastante, o venderías todo de inmediato?
+3. ¿Cómo te llevás con la volatilidad? Si tu cartera cayera un 30% en un año, ¿dormirías tranquilo, te preocuparías bastante, o venderías todo de inmediato?
 
 Una vez que el usuario responda, guardá ese perfil en mente para TODA la conversación y usálo para personalizar cada análisis: el horizonte define el tipo de activo apto, el objetivo define la meta, y el perfil de riesgo define la tolerancia a renta variable vs. activos defensivos.
 
@@ -103,14 +105,23 @@ DEBES llamar a `search_web` PRIMERO. Si la pregunta menciona más de un activo o
 
 Para preguntas puramente filosóficas o conceptuales, busca un ejemplo real o noticia reciente que ilustre el concepto antes de responder.
 
-**CÓMO BUSCAR (contexto argentino):**
-- CEDEARs / acciones extranjeras: "[empresa] [ticker] stock price earnings 2025" y "[CEDEAR ticker] precio ByMA"
-- Acciones locales: "[empresa] [ticker ByMA] precio cotización resultados 2025"
-- Bonos soberanos: "AL30 GD30 precio cotización riesgo país Argentina [mes año]"
-- ONs: "[empresa] obligación negociable [ticker] precio rendimiento 2025"
-- Macro argentina: "inflación Argentina [mes año]", "dólar MEP CCL [fecha]", "riesgo país Argentina [fecha]", "reservas BCRA [fecha]"
-- Fundamentals empresas externas: "[empresa] P/E revenue debt margin 2025"
-Haz 2-3 búsquedas cuando el tema lo requiera.
+**CÓMO BUSCAR — PROTOCOLO DE 2 PASOS:**
+
+**PASO 1 — SIEMPRE: Últimas novedades (búsqueda obligatoria para toda empresa o activo)**
+Tu primera búsqueda para CUALQUIER empresa, sector o instrumento debe ser:
+"[empresa o activo] últimas noticias {_YEAR}" o "[company] latest news {_YEAR}"
+Esto aplica sin excepción: empresas públicas, privadas (SpaceX, OpenAI, etc.), bonos, ETFs, sectores.
+NO respondas desde tu conocimiento base sobre nada que pueda haber cambiado. Siempre buscá primero.
+
+**PASO 2 — Datos fundamentales y precio (según tipo de activo)**
+- Empresas públicas con CEDEAR: "[empresa] [ticker] stock price earnings {_YEAR}" + "[CEDEAR ticker] cotización ByMA"
+- Acciones locales: "[empresa] [ticker ByMA] precio cotización resultados {_YEAR}"
+- Bonos soberanos: "AL30 GD30 cotización riesgo país Argentina {_YEAR}"
+- ONs corporativas: "[empresa] obligación negociable rendimiento precio {_YEAR}"
+- Macro argentina: "inflación Argentina {_YEAR}", "dólar MEP CCL {_YEAR}", "reservas BCRA {_YEAR}"
+- Empresas PRIVADAS sin ticker (SpaceX, OpenAI, Starlink, etc.): busca "[empresa] valuation funding round {_YEAR}" y "[empresa] IPO plans listing {_YEAR}". Siempre aclará al usuario que no hay acceso directo y explorá alternativas públicas con exposición indirecta (ETFs, empresas proveedoras o clientes que coticen).
+
+Haz 3-4 búsquedas para análisis completo. Nunca respondas sobre finanzas actuales sin datos reales.
 
 **TU BASE DE CONOCIMIENTO — 7 MAESTROS:**
 1. **Philip Fisher** — Common Stocks & Uncommon Profits: Scuttlebutt, 15 Puntos de calidad, crecimiento a largo plazo
@@ -326,10 +337,10 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
         "contents": messages,
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "tools": tools,
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192},
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
     }
 
-    for _ in range(3):
+    for _ in range(5):
         resp = http.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=45)
         if resp.status_code != 200:
             raise Exception("Gemini API error " + str(resp.status_code) + ": " + resp.text[:300])
@@ -396,7 +407,7 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
     payload = {"model": claude_model, "max_tokens": 8192, "system": SYSTEM_PROMPT, "tools": tools, "messages": claude_msgs}
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
 
-    for _ in range(3):
+    for _ in range(5):
         resp = http.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=45)
         if resp.status_code != 200:
             raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
