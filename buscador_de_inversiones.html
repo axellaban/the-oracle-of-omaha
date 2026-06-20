@@ -641,9 +641,20 @@
                 });
 
                 clearTimeout(searchTimer);
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Error del servidor: ' + response.status);
 
+                if (!response.ok) {
+                    let errDetail = `Error ${response.status}`;
+                    try {
+                        const errBody = await response.json();
+                        errDetail = errBody.error || errDetail;
+                    } catch {
+                        const txt = await response.text().catch(() => '');
+                        if (txt) errDetail += ': ' + txt.replace(/<[^>]+>/g, '').trim().substring(0, 120);
+                    }
+                    throw new Error(errDetail);
+                }
+
+                const result = await response.json();
                 const aiText = result.response;
                 const meta = result.meta || null;
                 chatHistory.push({ role: "model", parts: [{ text: aiText }] });
@@ -653,9 +664,9 @@
                 clearTimeout(searchTimer);
                 removeBadge();
                 console.error("Error al contactar al Oráculo:", error);
-                const errMsg = error.message && error.message.length < 200
-                    ? `⚠️ Error: ${error.message}`
-                    : "El mercado está cerrado ahora mismo o tuvimos un problema de comunicación. Intenta de nuevo.";
+                const errMsg = error.message && error.message.length < 300
+                    ? `⚠️ ${error.message}`
+                    : "Hubo un problema de comunicación con el servidor. Intentá de nuevo.";
                 appendMessage('ai', errMsg);
                 chatHistory.pop();
             } finally {
