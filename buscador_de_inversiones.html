@@ -337,29 +337,101 @@
         }
         .state-chat #footer { opacity: 0; pointer-events: none; }
 
-        /* Searching badge */
-        .searching-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: #e8710a;
-            font-weight: 500;
-            padding: 4px 10px;
-            background: rgba(232, 113, 10, 0.08);
+        /* ─── Agent thinking terminal ─────────────────────────── */
+        .agent-thinking {
+            width: 100%;
+            max-width: 720px;
+            background: #0d1117;
+            border: 1px solid #30363d;
             border-radius: 12px;
-            margin-left: 0;
-            margin-bottom: 6px;
-            animation: pulse 1.5s ease-in-out infinite;
+            padding: 14px 18px 16px;
+            margin: 4px 0 14px 0;
+            overflow: hidden;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .at-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding-bottom: 9px;
+            border-bottom: 1px solid #21262d;
+            color: #8b949e;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
         }
-        .searching-badge .dot {
-            width: 6px; height: 6px;
-            background: #e8710a;
+        .at-dot {
+            width: 8px; height: 8px;
             border-radius: 50%;
+            background: #3fb950;
+            flex-shrink: 0;
+            animation: atPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes atPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(63,185,80,0.5); }
+            50%       { opacity: 0.7; box-shadow: 0 0 0 5px rgba(63,185,80,0); }
+        }
+        .at-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 200px;
+            overflow: hidden;
+        }
+        .at-step {
+            font-family: 'Courier New', monospace;
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: #8b949e;
+            opacity: 0;
+            transform: translateY(5px);
+            animation: atStepIn 0.35s ease forwards;
+        }
+        .at-step.at-active {
+            color: #e6edf3;
+        }
+        .at-step.at-active::after {
+            content: '▋';
+            color: #3fb950;
+            animation: atBlink 0.75s step-end infinite;
+            margin-left: 2px;
+        }
+        @keyframes atStepIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes atBlink {
+            0%, 100% { opacity: 1; } 50% { opacity: 0; }
+        }
+
+        /* ─── Enhanced response meta ───────────────────────────── */
+        .meta-model-badge {
+            background: linear-gradient(135deg, #1557b0, #1a73e8);
+            color: #fff;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+        .meta-council-badge {
+            background: rgba(52,168,83,0.12);
+            color: #1a7a36;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .meta-query-chip {
+            color: #5f6368;
+            font-style: italic;
+            font-size: 11px;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
         }
 
         /* ─── Bottom chat input bar (chat mode only) ───────────────── */
@@ -529,7 +601,31 @@
         let chatHistory = [];
         let isChatMode = false;
         let isWaitingForResponse = false;
-        let searchingBadge = null;
+
+        // Agent thinking animation state
+        let agentThinkingEl = null;
+        let agentInterval = null;
+        let agentStepIndex = 0;
+
+        const agentSteps = [
+            '🌐 Conectando a fuentes de datos financieros en tiempo real...',
+            '🔍 Buscando: últimas noticias y novedades 2026...',
+            '📰 Scrapeando: Bloomberg · Reuters · Ámbito · Infobae Economía · El Cronista...',
+            '🔍 Buscando: análisis fundamental · múltiplos de valuación · earnings...',
+            '📊 Extrayendo: precios · volúmenes · márgenes · métricas clave...',
+            '🔍 Buscando: riesgo regulatorio · contexto macro · riesgo país...',
+            '🧮 Procesando señales · filtrando ruido · priorizando data relevante...',
+            '📚 Cargando 7 frameworks: Graham · Lynch · Dalio · Marks · Soros · Klarman · Munger...',
+            '🏛️  Warren Buffett: evaluando ventaja competitiva duradera y moat económico...',
+            '📉  Charlie Munger: analizando calidad del management y sesgos cognitivos...',
+            '📈  Peter Lynch: calculando crecimiento a precio razonable (PEG ratio)...',
+            '🌊  Ray Dalio: revisando ciclos macroeconómicos y correlación entre activos...',
+            '🎯  Benjamin Graham: calculando valor intrínseco y margen de seguridad...',
+            '⚖️   Howard Marks: evaluando el ciclo de mercado y balance riesgo/retorno...',
+            '🔮  George Soros: analizando reflexividad y sesgos del mercado...',
+            '🤝 Consejo de 7 deliberando · identificando consensos y divergencias...',
+            '✅ Sintetizando recomendación final con acción concreta...',
+        ];
 
         const mainContainer = document.getElementById('main-container');
         const queryInput = document.getElementById('query-input');
@@ -663,20 +759,45 @@
             await fetchAIResponse();
         }
 
-        function showSearchingBadge() {
+        function showAgentThinking() {
             removeBadge();
-            searchingBadge = document.createElement('div');
-            searchingBadge.className = 'searching-badge';
-            searchingBadge.innerHTML = '<div class="dot"></div> Buscando en Google...';
-            chatHistoryContainer.appendChild(searchingBadge);
+            agentStepIndex = 0;
+
+            agentThinkingEl = document.createElement('div');
+            agentThinkingEl.className = 'agent-thinking';
+            agentThinkingEl.innerHTML =
+                '<div class="at-header"><div class="at-dot"></div><span>Oracle Council &middot; Investigando...</span></div>' +
+                '<div class="at-steps" id="at-steps-list"></div>';
+            chatHistoryContainer.appendChild(agentThinkingEl);
             scrollToBottom();
+
+            const stepsList = agentThinkingEl.querySelector('#at-steps-list');
+
+            function addNextStep() {
+                if (!agentThinkingEl) return;
+                const prev = stepsList.querySelector('.at-active');
+                if (prev) prev.classList.remove('at-active');
+
+                if (agentStepIndex < agentSteps.length) {
+                    const el = document.createElement('div');
+                    el.className = 'at-step at-active';
+                    el.textContent = agentSteps[agentStepIndex++];
+                    stepsList.appendChild(el);
+                    stepsList.scrollTop = stepsList.scrollHeight;
+                    scrollToBottom();
+                } else {
+                    clearInterval(agentInterval);
+                    agentInterval = null;
+                }
+            }
+
+            addNextStep();
+            agentInterval = setInterval(addNextStep, 1700);
         }
 
         function removeBadge() {
-            if (searchingBadge) {
-                searchingBadge.remove();
-                searchingBadge = null;
-            }
+            if (agentInterval) { clearInterval(agentInterval); agentInterval = null; }
+            if (agentThinkingEl) { agentThinkingEl.remove(); agentThinkingEl = null; }
         }
 
         function appendMessage(role, text, meta) {
@@ -719,28 +840,31 @@
                     const metaDiv = document.createElement('div');
                     metaDiv.className = 'response-meta';
 
-                    const llmLabel = '✨';
-                    let metaHTML = '<span class="meta-item">' + llmLabel + ' ' + escapeHTML(meta.model || 'unknown') + '</span>';
+                    let metaHTML = '<span class="meta-model-badge">✨ ' + escapeHTML(meta.model || 'AI') + '</span>';
+                    metaHTML += '<span class="meta-dot"></span>';
+                    metaHTML += '<span class="meta-council-badge">📚 Consejo de 7</span>';
 
                     if (meta.firecrawl_used && meta.firecrawl_pages > 0) {
                         const srcLabel = meta.search_source === 'firecrawl' ? '🔥 Firecrawl' : '🌐 Google';
+                        const nSearches = meta.firecrawl_searches;
+                        const nResults = meta.firecrawl_pages;
                         metaHTML += '<span class="meta-dot"></span>';
                         metaHTML += '<span class="meta-item firecrawl-badge">' + srcLabel + ': ' +
-                            meta.firecrawl_searches + (meta.firecrawl_searches === 1 ? ' búsqueda' : ' búsquedas') +
-                            ' · ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' resultado' : ' resultados') +
-                            '</span>';
+                            nSearches + (nSearches === 1 ? ' búsqueda' : ' búsquedas') +
+                            ' &middot; ' + nResults + (nResults === 1 ? ' resultado' : ' resultados') + ' procesados</span>';
                         if (meta.firecrawl_queries && meta.firecrawl_queries.length > 0) {
-                            metaHTML += '<span class="meta-dot"></span>';
-                            metaHTML += '<span class="meta-item" title="' + escapeHTML(meta.firecrawl_queries.join(' | ')) + '">🔍 ' +
-                                escapeHTML(meta.firecrawl_queries[0].substring(0, 40)) +
-                                (meta.firecrawl_queries[0].length > 40 ? '...' : '') + '</span>';
+                            meta.firecrawl_queries.slice(0, 3).forEach(function(q) {
+                                const display = q.length > 48 ? q.substring(0, 48) + '…' : q;
+                                metaHTML += '<span class="meta-dot"></span>';
+                                metaHTML += '<span class="meta-query-chip" title="' + escapeHTML(q) + '">🔍 &ldquo;' + escapeHTML(display) + '&rdquo;</span>';
+                            });
                         }
                     } else if (meta.firecrawl_used && meta.firecrawl_pages === 0) {
                         metaHTML += '<span class="meta-dot"></span>';
                         metaHTML += '<span class="meta-item" style="color:#ea4335">⚠️ Búsqueda web falló</span>';
                     } else {
                         metaHTML += '<span class="meta-dot"></span>';
-                        metaHTML += '<span class="meta-item">Sin búsqueda web</span>';
+                        metaHTML += '<span class="meta-item">📂 Conocimiento base</span>';
                     }
 
                     metaDiv.innerHTML = metaHTML;
@@ -766,29 +890,24 @@
 
         function setLoading(isLoading) {
             isWaitingForResponse = isLoading;
-            loadingIndicator.style.display = isLoading ? 'flex' : 'none';
+            loadingIndicator.style.display = 'none'; // agent-thinking replaces typing dots
             queryInput.disabled = isLoading;
             chatTextarea.disabled = isLoading;
             sendBtn.disabled = isLoading;
             if (isLoading) {
-                scrollToBottom();
+                showAgentThinking();
             } else {
                 if (isChatMode) chatTextarea.focus(); else queryInput.focus();
             }
         }
 
         async function fetchAIResponse() {
-            // Show "searching" badge after 2s if still loading (means LLM triggered a search)
-            const searchTimer = setTimeout(showSearchingBadge, 2000);
-
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ messages: chatHistory, llm: 'gemini' }),
                 });
-
-                clearTimeout(searchTimer);
 
                 if (!response.ok) {
                     let errDetail = `Error ${response.status}`;
@@ -809,7 +928,6 @@
                 appendMessage('ai', aiText, meta);
 
             } catch (error) {
-                clearTimeout(searchTimer);
                 removeBadge();
                 console.error("Error al contactar al Oráculo:", error);
                 const errMsg = error.message && error.message.length < 300
