@@ -3,10 +3,11 @@
     { "source": "/", "destination": "/buscador_de_inversiones.html" }
   ],
   "functions": {
-    "api/chat.py": {
+    "api/*.py": {
       "maxDuration": 60,
       "memory": 256,
       "includeFiles": "extracted_skills/**"
     }
   }
 }
+
