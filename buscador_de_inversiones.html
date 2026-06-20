@@ -96,6 +96,8 @@
         }
 
         .state-chat #buttons-container { display: none; }
+        .state-chat #search-wrapper { display: none; }
+        .state-chat #chat-area { padding-bottom: 96px; }
 
         .search-bar {
             border: 1px solid #dfe1e5;
@@ -360,15 +362,113 @@
             border-radius: 50%;
         }
 
+        /* ─── Bottom chat input bar (chat mode only) ───────────────── */
+        #chat-input-bar {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            padding: 10px 16px;
+            padding-bottom: max(14px, env(safe-area-inset-bottom, 14px));
+            background: rgba(255,255,255,0.97);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(0,0,0,0.06);
+            z-index: 30;
+            justify-content: center;
+        }
+        .state-chat #chat-input-bar { display: flex; }
+
+        .chat-input-inner {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            background: #f4f4f4;
+            border: 1px solid rgba(0,0,0,0.07);
+            border-radius: 26px;
+            padding: 10px 10px 10px 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .chat-input-inner:focus-within {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+            border-color: rgba(26,115,232,0.25);
+            background: #fff;
+        }
+
+        #chat-textarea {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            resize: none;
+            min-height: 24px;
+            max-height: 180px;
+            line-height: 1.5;
+            overflow-y: auto;
+            padding: 0;
+            color: #202124;
+        }
+        #chat-textarea::placeholder { color: #9aa0a6; }
+        #chat-textarea:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        #send-btn {
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            border-radius: 50%;
+            background: #0b57d0;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.15s, transform 0.1s, opacity 0.15s;
+            color: white;
+        }
+        #send-btn:hover:not(:disabled) { background: #1a73e8; transform: scale(1.06); }
+        #send-btn:disabled { background: #dadce0; cursor: not-allowed; transform: none; }
+
+        /* ─── Response action buttons (copy) ─────────────────────── */
+        .response-actions {
+            display: flex;
+            gap: 2px;
+            margin-top: 4px;
+            opacity: 0;
+            animation: slideUpFade 0.3s ease 0.15s forwards;
+        }
+        .copy-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border: none;
+            background: transparent;
+            color: #9aa0a6;
+            font-size: 12px;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.15s, color 0.15s;
+            line-height: 1;
+        }
+        .copy-btn:hover { background: #f0f4f9; color: #3c4043; }
+        .copy-btn.copied { color: #34a853; }
+
         @media (max-width: 600px) {
             .state-home #logo-container { font-size: 3.5rem; }
-            .state-chat #header-area { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
-            .state-chat #logo-container { margin-bottom: 12px; font-size: 1.8rem; }
-            .state-chat #search-wrapper { width: 100%; }
+            .state-chat #header-area { padding: 12px 16px; }
+            .state-chat #logo-container { font-size: 1.8rem; }
             .user-message .content { max-width: 95%; border-radius: 18px 18px 4px 18px; }
             .ai-message .content { max-width: 95%; border-radius: 18px 18px 18px 4px; }
             #chat-area { padding: 20px 15px; }
             .response-meta { margin-left: 0; }
+            #chat-textarea { font-size: 16px; }
+            .chat-input-inner { border-radius: 22px; padding: 8px 8px 8px 16px; }
         }
     </style>
 </head>
@@ -408,6 +508,19 @@
                 </div>
             </div>
         </div>
+
+        <!-- Bottom chat input bar (visible in chat mode only) -->
+        <div id="chat-input-bar">
+            <div class="chat-input-inner">
+                <textarea id="chat-textarea" rows="1" placeholder="Preguntá sobre inversiones..."></textarea>
+                <button id="send-btn" disabled title="Enviar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5"/>
+                        <polyline points="5 12 12 5 19 12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </div>
 
     <div id="footer"></div>
@@ -423,8 +536,27 @@
         const clearBtn = document.getElementById('clear-btn');
         const chatHistoryContainer = document.getElementById('chat-history');
         const loadingIndicator = document.getElementById('loading-indicator');
+        const chatTextarea = document.getElementById('chat-textarea');
+        const sendBtn = document.getElementById('send-btn');
 
         marked.setOptions({ breaks: true, gfm: true });
+
+        // ── Bottom textarea: auto-resize + send on Enter ────────────
+        chatTextarea.addEventListener('input', () => {
+            chatTextarea.style.height = 'auto';
+            chatTextarea.style.height = Math.min(chatTextarea.scrollHeight, 180) + 'px';
+            sendBtn.disabled = chatTextarea.value.trim().length === 0 || isWaitingForResponse;
+        });
+        chatTextarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!sendBtn.disabled) submitQuery();
+            }
+        });
+        sendBtn.addEventListener('click', () => { if (!sendBtn.disabled) submitQuery(); });
+
+        const _COPY_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+        const _CHECK_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13 l4 4 L19 7"/></svg>`;
 
         const luckyQueries = [
             // Conceptos básicos
@@ -485,8 +617,8 @@
                 mainContainer.classList.remove('state-home');
                 mainContainer.classList.add('state-chat');
                 document.title = "Oracle of Omaha - Resultados";
-                // Scroll after the CSS layout transition finishes (500ms)
-                setTimeout(scrollToBottom, 520);
+                // Scroll + focus textarea after CSS layout transition finishes (500ms)
+                setTimeout(() => { scrollToBottom(); chatTextarea.focus(); }, 520);
             }
         }
 
@@ -498,6 +630,9 @@
             chatHistory = [];
             chatHistoryContainer.innerHTML = '';
             clearInput();
+            chatTextarea.value = '';
+            chatTextarea.style.height = 'auto';
+            sendBtn.disabled = true;
             document.title = "Oracle of Omaha - Consejos de Inversión";
         }
 
@@ -507,14 +642,23 @@
         }
 
         async function submitQuery() {
-            const query = queryInput.value.trim();
+            // Read from the right input BEFORE enterChatMode changes isChatMode
+            const query = isChatMode
+                ? chatTextarea.value.trim()
+                : queryInput.value.trim();
             if (!query || isWaitingForResponse) return;
 
             enterChatMode();
             appendMessage('user', query);
             chatHistory.push({ role: "user", parts: [{ text: query }] });
+
+            // Clear both inputs
             queryInput.value = '';
             clearBtn.style.display = 'none';
+            chatTextarea.value = '';
+            chatTextarea.style.height = 'auto';
+            sendBtn.disabled = true;
+
             setLoading(true);
             await fetchAIResponse();
         }
@@ -549,36 +693,59 @@
             }
             chatHistoryContainer.appendChild(msgDiv);
 
-            if (role === 'ai' && meta) {
-                const metaDiv = document.createElement('div');
-                metaDiv.className = 'response-meta';
+            if (role === 'ai') {
+                // Copy button (always shown for AI messages)
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'response-actions';
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.title = 'Copiar respuesta';
+                copyBtn.innerHTML = _COPY_ICON + '<span>Copiar</span>';
+                copyBtn.addEventListener('click', () => {
+                    const contentEl = msgDiv.querySelector('.content');
+                    navigator.clipboard.writeText(contentEl.innerText).then(() => {
+                        copyBtn.classList.add('copied');
+                        copyBtn.innerHTML = _CHECK_ICON + '<span>Copiado</span>';
+                        setTimeout(() => {
+                            copyBtn.classList.remove('copied');
+                            copyBtn.innerHTML = _COPY_ICON + '<span>Copiar</span>';
+                        }, 2000);
+                    }).catch(() => {});
+                });
+                actionsDiv.appendChild(copyBtn);
+                chatHistoryContainer.appendChild(actionsDiv);
 
-                const llmLabel = '✨';
-                let metaHTML = '<span class="meta-item">' + llmLabel + ' ' + escapeHTML(meta.model || 'unknown') + '</span>';
+                if (meta) {
+                    const metaDiv = document.createElement('div');
+                    metaDiv.className = 'response-meta';
 
-                if (meta.firecrawl_used && meta.firecrawl_pages > 0) {
-                    const srcLabel = meta.search_source === 'firecrawl' ? '🔥 Firecrawl' : '🌐 Google';
-                    metaHTML += '<span class="meta-dot"></span>';
-                    metaHTML += '<span class="meta-item firecrawl-badge">' + srcLabel + ': ' +
-                        meta.firecrawl_searches + (meta.firecrawl_searches === 1 ? ' búsqueda' : ' búsquedas') +
-                        ' · ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' resultado' : ' resultados') +
-                        '</span>';
-                    if (meta.firecrawl_queries && meta.firecrawl_queries.length > 0) {
+                    const llmLabel = '✨';
+                    let metaHTML = '<span class="meta-item">' + llmLabel + ' ' + escapeHTML(meta.model || 'unknown') + '</span>';
+
+                    if (meta.firecrawl_used && meta.firecrawl_pages > 0) {
+                        const srcLabel = meta.search_source === 'firecrawl' ? '🔥 Firecrawl' : '🌐 Google';
                         metaHTML += '<span class="meta-dot"></span>';
-                        metaHTML += '<span class="meta-item" title="' + escapeHTML(meta.firecrawl_queries.join(' | ')) + '">🔍 ' +
-                            escapeHTML(meta.firecrawl_queries[0].substring(0, 40)) +
-                            (meta.firecrawl_queries[0].length > 40 ? '...' : '') + '</span>';
+                        metaHTML += '<span class="meta-item firecrawl-badge">' + srcLabel + ': ' +
+                            meta.firecrawl_searches + (meta.firecrawl_searches === 1 ? ' búsqueda' : ' búsquedas') +
+                            ' · ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' resultado' : ' resultados') +
+                            '</span>';
+                        if (meta.firecrawl_queries && meta.firecrawl_queries.length > 0) {
+                            metaHTML += '<span class="meta-dot"></span>';
+                            metaHTML += '<span class="meta-item" title="' + escapeHTML(meta.firecrawl_queries.join(' | ')) + '">🔍 ' +
+                                escapeHTML(meta.firecrawl_queries[0].substring(0, 40)) +
+                                (meta.firecrawl_queries[0].length > 40 ? '...' : '') + '</span>';
+                        }
+                    } else if (meta.firecrawl_used && meta.firecrawl_pages === 0) {
+                        metaHTML += '<span class="meta-dot"></span>';
+                        metaHTML += '<span class="meta-item" style="color:#ea4335">⚠️ Búsqueda web falló</span>';
+                    } else {
+                        metaHTML += '<span class="meta-dot"></span>';
+                        metaHTML += '<span class="meta-item">Sin búsqueda web</span>';
                     }
-                } else if (meta.firecrawl_used && meta.firecrawl_pages === 0) {
-                    metaHTML += '<span class="meta-dot"></span>';
-                    metaHTML += '<span class="meta-item" style="color:#ea4335">⚠️ Búsqueda web falló</span>';
-                } else {
-                    metaHTML += '<span class="meta-dot"></span>';
-                    metaHTML += '<span class="meta-item">Sin búsqueda web</span>';
-                }
 
-                metaDiv.innerHTML = metaHTML;
-                chatHistoryContainer.appendChild(metaDiv);
+                    metaDiv.innerHTML = metaHTML;
+                    chatHistoryContainer.appendChild(metaDiv);
+                }
             }
 
             scrollToBottom();
@@ -601,7 +768,13 @@
             isWaitingForResponse = isLoading;
             loadingIndicator.style.display = isLoading ? 'flex' : 'none';
             queryInput.disabled = isLoading;
-            if (isLoading) scrollToBottom(); else queryInput.focus();
+            chatTextarea.disabled = isLoading;
+            sendBtn.disabled = isLoading;
+            if (isLoading) {
+                scrollToBottom();
+            } else {
+                if (isChatMode) chatTextarea.focus(); else queryInput.focus();
+            }
         }
 
         async function fetchAIResponse() {
