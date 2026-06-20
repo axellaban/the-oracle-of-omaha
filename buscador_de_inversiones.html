@@ -335,33 +335,6 @@
         }
         .state-chat #footer { opacity: 0; pointer-events: none; }
 
-        /* LLM Toggle */
-        .llm-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0;
-            border: 1px solid #dadce0;
-            border-radius: 20px;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        .llm-toggle button {
-            padding: 6px 14px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #5f6368;
-            background: white;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: 'Inter', sans-serif;
-        }
-        .llm-toggle button.active {
-            background: #1a73e8;
-            color: white;
-        }
-        .llm-toggle button:hover:not(.active) { background: #f8f9fa; }
-
         /* Searching badge */
         .searching-badge {
             display: inline-flex;
@@ -439,7 +412,7 @@
     </div>
 
     <div id="footer">
-        Berkshire Hathaway Virtual Advisor &bull; Omaha, Nebraska
+        Asesor Financiero IA &bull; Mercado Argentino
     </div>
 
     <script>
@@ -551,7 +524,7 @@
             removeBadge();
             searchingBadge = document.createElement('div');
             searchingBadge.className = 'searching-badge';
-            searchingBadge.innerHTML = '<div class="dot"></div> Buscando en la web...';
+            searchingBadge.innerHTML = '<div class="dot"></div> Buscando en Google...';
             chatHistoryContainer.appendChild(searchingBadge);
             scrollToBottom();
         }
@@ -586,11 +559,12 @@
                 let metaHTML = '<span class="meta-item">' + llmLabel + ' ' + escapeHTML(meta.model || 'unknown') + '</span>';
 
                 if (meta.firecrawl_used && meta.firecrawl_pages > 0) {
+                    const srcLabel = meta.search_source === 'firecrawl' ? '🔥 Firecrawl' : '🌐 Google';
                     metaHTML += '<span class="meta-dot"></span>';
-                    metaHTML += '<span class="meta-item firecrawl-badge">🔥 Firecrawl: ' +
+                    metaHTML += '<span class="meta-item firecrawl-badge">' + srcLabel + ': ' +
                         meta.firecrawl_searches + (meta.firecrawl_searches === 1 ? ' búsqueda' : ' búsquedas') +
-                        ' · ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' página' : ' páginas') +
-                        ' analizadas</span>';
+                        ' · ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' resultado' : ' resultados') +
+                        '</span>';
                     if (meta.firecrawl_queries && meta.firecrawl_queries.length > 0) {
                         metaHTML += '<span class="meta-dot"></span>';
                         metaHTML += '<span class="meta-item" title="' + escapeHTML(meta.firecrawl_queries.join(' | ')) + '">🔍 ' +
@@ -668,6 +642,8 @@
                     ? `⚠️ ${error.message}`
                     : "Hubo un problema de comunicación con el servidor. Intentá de nuevo.";
                 appendMessage('ai', errMsg);
+                // Remove the unanswered user message from history so the AI
+                // doesn't see a dangling user turn without a response on retry
                 chatHistory.pop();
             } finally {
                 setLoading(false);

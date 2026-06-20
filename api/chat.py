@@ -302,6 +302,7 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
         "firecrawl_searches": 0,
         "firecrawl_pages": 0,
         "firecrawl_queries": [],
+        "search_source": None,
     }
 
     tools = [{
@@ -350,6 +351,8 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
             meta["firecrawl_searches"] += 1
             meta["firecrawl_pages"] += pages
             meta["firecrawl_queries"].append(query_str)
+            if pages > 0 and not meta["search_source"]:
+                meta["search_source"] = search_result.get("source")
 
             payload["contents"].append({"role": "model", "parts": [{"functionCall": fc}]})
             payload["contents"].append({"role": "user", "parts": [{"functionResponse": {"name": "search_web", "response": search_result}}]})
@@ -370,6 +373,7 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
         "firecrawl_searches": 0,
         "firecrawl_pages": 0,
         "firecrawl_queries": [],
+        "search_source": None,
     }
 
     tools = [{
@@ -411,6 +415,8 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
                     meta["firecrawl_searches"] += 1
                     meta["firecrawl_pages"] += pages
                     meta["firecrawl_queries"].append(tb["input"]["query"])
+                    if pages > 0 and not meta["search_source"]:
+                        meta["search_source"] = sr.get("source")
                     tool_results.append({"type": "tool_result", "tool_use_id": tb["id"], "content": json.dumps(sr, ensure_ascii=False)})
 
             payload["messages"].append({"role": "assistant", "content": result["content"]})
