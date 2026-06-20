@@ -488,6 +488,8 @@
                 mainContainer.classList.remove('state-home');
                 mainContainer.classList.add('state-chat');
                 document.title = "Oracle of Omaha - Resultados";
+                // Scroll after the CSS layout transition finishes (500ms)
+                setTimeout(scrollToBottom, 520);
             }
         }
 
@@ -593,7 +595,10 @@
         }
 
         function scrollToBottom() {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            requestAnimationFrame(() => {
+                const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+                window.scrollTo({ top: h, behavior: 'smooth' });
+            });
         }
 
         function setLoading(isLoading) {
