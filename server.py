@@ -97,33 +97,45 @@ def firecrawl_search(query, api_key):
                 "Authorization": "Bearer " + api_key,
                 "Content-Type": "application/json",
             },
-            json={
-                "query": query,
-                "limit": 5,
-                "scrapeOptions": {
-                    "formats": ["markdown"],
-                    "onlyMainContent": True,
-                },
-            },
+            json={"query": query, "limit": 5},
             timeout=30,
         )
 
+        print(f"[Firecrawl] query='{query}' status={resp.status_code}")
+
         if resp.status_code != 200:
-            return {"error": "Firecrawl error " + str(resp.status_code) + ": " + resp.text[:200]}, 0
+            err = f"Firecrawl error {resp.status_code}: {resp.text[:300]}"
+            print(f"[Firecrawl] ERROR: {err}")
+            return {"error": err}, 0
 
         data = resp.json()
+        if not data.get("success", True):
+            err = data.get("error", "Firecrawl returned success=false")
+            print(f"[Firecrawl] ERROR: {err}")
+            return {"error": err}, 0
+
+        raw_results = data.get("data", [])
+        print(f"[Firecrawl] {len(raw_results)} resultados encontrados")
+
         results = []
-        for item in data.get("data", []):
-            md = item.get("markdown", "") or item.get("description", "") or ""
+        for item in raw_results:
+            content = (
+                item.get("markdown", "")
+                or item.get("description", "")
+                or item.get("content", "")
+                or ""
+            )
             results.append({
                 "title": item.get("title", "Sin titulo"),
                 "url": item.get("url", ""),
-                "content": md[:3000],
+                "content": content[:3000],
             })
 
         return {"results": results}, len(results)
     except Exception as e:
-        return {"error": "Error en busqueda web: " + str(e)}, 0
+        err = f"Error en busqueda web: {str(e)}"
+        print(f"[Firecrawl] EXCEPTION: {err}")
+        return {"error": err}, 0
 
 
 # ─── Gemini API with Function Calling ───────────────────────────────────────

@@ -90,32 +90,34 @@ def firecrawl_search(query, api_key):
                 "Authorization": "Bearer " + api_key,
                 "Content-Type": "application/json",
             },
-            json={
-                "query": query,
-                "limit": 5,
-                "scrapeOptions": {
-                    "formats": ["markdown"],
-                    "onlyMainContent": True,
-                },
-            },
+            json={"query": query, "limit": 5},
             timeout=30,
         )
 
         if resp.status_code != 200:
-            return {"error": "Firecrawl error " + str(resp.status_code)}, 0
+            return {"error": f"Firecrawl error {resp.status_code}: {resp.text[:200]}"}, 0
 
         data = resp.json()
+        if not data.get("success", True):
+            return {"error": data.get("error", "Firecrawl returned success=false")}, 0
+
+        raw_results = data.get("data", [])
         results = []
-        for item in data.get("data", []):
-            md = item.get("markdown", "") or item.get("description", "") or ""
+        for item in raw_results:
+            content = (
+                item.get("markdown", "")
+                or item.get("description", "")
+                or item.get("content", "")
+                or ""
+            )
             results.append({
                 "title": item.get("title", "Sin titulo"),
                 "url": item.get("url", ""),
-                "content": md[:3000],
+                "content": content[:3000],
             })
         return {"results": results}, len(results)
     except Exception as e:
-        return {"error": "Error en busqueda web: " + str(e)}, 0
+        return {"error": f"Error en busqueda web: {str(e)}"}, 0
 
 
 # ─── Gemini API ─────────────────────────────────────────────────────────────

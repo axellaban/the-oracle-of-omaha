@@ -335,6 +335,58 @@
         }
         .state-chat #footer { opacity: 0; pointer-events: none; }
 
+        /* LLM Toggle */
+        .llm-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border: 1px solid #dadce0;
+            border-radius: 20px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .llm-toggle button {
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #5f6368;
+            background: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .llm-toggle button.active {
+            background: #1a73e8;
+            color: white;
+        }
+        .llm-toggle button:hover:not(.active) { background: #f8f9fa; }
+
+        /* Searching badge */
+        .searching-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #e8710a;
+            font-weight: 500;
+            padding: 4px 10px;
+            background: rgba(232, 113, 10, 0.08);
+            border-radius: 12px;
+            margin-left: 60px;
+            margin-bottom: 6px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .searching-badge .dot {
+            width: 6px; height: 6px;
+            background: #e8710a;
+            border-radius: 50%;
+        }
+
         @media (max-width: 600px) {
             .state-home #logo-container { font-size: 3.5rem; }
             .state-chat #header-area { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
@@ -356,13 +408,13 @@
             </div>
 
             <div id="search-wrapper" class="flex flex-col items-center">
-                <div class="search-bar w-full flex items-center px-4 py-3 bg-white">
-                    <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-gray-400 mr-3">
+                <div class="search-bar w-full flex items-center px-4 py-3 bg-white gap-2">
+                    <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5 text-gray-400 flex-shrink-0">
                         <path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
                     </svg>
-                    <input type="text" id="query-input" class="w-full outline-none text-base text-gray-800" 
+                    <input type="text" id="query-input" class="flex-grow outline-none text-base text-gray-800 min-w-0"
                            placeholder="Pregunta sobre inversiones..." autocomplete="off">
-                    <button id="clear-btn" class="hidden text-gray-500 hover:text-gray-700 p-1" onclick="clearInput()">
+                    <button id="clear-btn" class="hidden text-gray-500 hover:text-gray-700 p-1 flex-shrink-0" onclick="clearInput()">
                         <svg focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5">
                             <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
                         </svg>
@@ -394,6 +446,7 @@
         let chatHistory = [];
         let isChatMode = false;
         let isWaitingForResponse = false;
+        let searchingBadge = null;
 
         const mainContainer = document.getElementById('main-container');
         const queryInput = document.getElementById('query-input');
@@ -411,6 +464,8 @@
             "¿Debería intentar predecir lo que hará el mercado el próximo año?",
             "Explícame el concepto de 'margen de seguridad' como si fuera un niño de 10 años.",
             "¿Qué es un foso económico y por qué es tan importante?",
+            "Analiza Apple AAPL como inversión a largo plazo.",
+            "¿Qué opinas sobre el mercado emergente latinoamericano hoy?",
         ];
 
         queryInput.addEventListener('input', () => {
@@ -462,7 +517,24 @@
             await fetchAIResponse();
         }
 
+        function showSearchingBadge() {
+            removeBadge();
+            searchingBadge = document.createElement('div');
+            searchingBadge.className = 'searching-badge';
+            searchingBadge.innerHTML = '<div class="dot"></div> Buscando en la web...';
+            chatHistoryContainer.appendChild(searchingBadge);
+            scrollToBottom();
+        }
+
+        function removeBadge() {
+            if (searchingBadge) {
+                searchingBadge.remove();
+                searchingBadge = null;
+            }
+        }
+
         function appendMessage(role, text, meta) {
+            removeBadge();
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message ' + (role === 'user' ? 'user-message' : 'ai-message');
 
@@ -476,19 +548,28 @@
             }
             chatHistoryContainer.appendChild(msgDiv);
 
-            // Add metadata bar for AI responses
             if (role === 'ai' && meta) {
                 const metaDiv = document.createElement('div');
                 metaDiv.className = 'response-meta';
 
-                let metaHTML = '<span class="meta-item">&#129302; ' + escapeHTML(meta.model || 'unknown') + '</span>';
+                const llmLabel = '✨';
+                let metaHTML = '<span class="meta-item">' + llmLabel + ' ' + escapeHTML(meta.model || 'unknown') + '</span>';
 
-                if (meta.firecrawl_used) {
+                if (meta.firecrawl_used && meta.firecrawl_pages > 0) {
                     metaHTML += '<span class="meta-dot"></span>';
-                    metaHTML += '<span class="meta-item firecrawl-badge">&#128293; Firecrawl: ' +
+                    metaHTML += '<span class="meta-item firecrawl-badge">🔥 Firecrawl: ' +
                         meta.firecrawl_searches + (meta.firecrawl_searches === 1 ? ' búsqueda' : ' búsquedas') +
-                        ' &middot; ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' página' : ' páginas') +
+                        ' · ' + meta.firecrawl_pages + (meta.firecrawl_pages === 1 ? ' página' : ' páginas') +
                         ' analizadas</span>';
+                    if (meta.firecrawl_queries && meta.firecrawl_queries.length > 0) {
+                        metaHTML += '<span class="meta-dot"></span>';
+                        metaHTML += '<span class="meta-item" title="' + escapeHTML(meta.firecrawl_queries.join(' | ')) + '">🔍 ' +
+                            escapeHTML(meta.firecrawl_queries[0].substring(0, 40)) +
+                            (meta.firecrawl_queries[0].length > 40 ? '...' : '') + '</span>';
+                    }
+                } else if (meta.firecrawl_used && meta.firecrawl_pages === 0) {
+                    metaHTML += '<span class="meta-dot"></span>';
+                    metaHTML += '<span class="meta-item" style="color:#ea4335">⚠️ Búsqueda web falló</span>';
                 } else {
                     metaHTML += '<span class="meta-dot"></span>';
                     metaHTML += '<span class="meta-item">Sin búsqueda web</span>';
@@ -502,7 +583,7 @@
         }
 
         function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, 
+            return String(str).replace(/[&<>'"]/g,
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
             );
         }
@@ -519,6 +600,9 @@
         }
 
         async function fetchAIResponse() {
+            // Show "searching" badge after 2s if still loading (means LLM triggered a search)
+            const searchTimer = setTimeout(showSearchingBadge, 2000);
+
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
@@ -526,6 +610,7 @@
                     body: JSON.stringify({ messages: chatHistory, llm: 'gemini' }),
                 });
 
+                clearTimeout(searchTimer);
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Error del servidor: ' + response.status);
 
@@ -535,8 +620,13 @@
                 appendMessage('ai', aiText, meta);
 
             } catch (error) {
+                clearTimeout(searchTimer);
+                removeBadge();
                 console.error("Error al contactar al Oráculo:", error);
-                appendMessage('ai', "El mercado está cerrado ahora mismo o tuvimos un problema de comunicación. Intenta preguntar de nuevo, pero recuerda, la paciencia es clave en la inversión y en la tecnología.");
+                const errMsg = error.message && error.message.length < 200
+                    ? `⚠️ Error: ${error.message}`
+                    : "El mercado está cerrado ahora mismo o tuvimos un problema de comunicación. Intenta de nuevo.";
+                appendMessage('ai', errMsg);
                 chatHistory.pop();
             } finally {
                 setLoading(false);
