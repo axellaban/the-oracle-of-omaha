@@ -422,7 +422,7 @@
                 </div>
                 <div id="buttons-container" class="mt-6 flex justify-center space-x-2">
                     <button class="g-button" onclick="submitQuery()">Pedir Consejo</button>
-                    <button class="g-button" onclick="feelingLucky()">Me siento prudente</button>
+                    <button class="g-button" onclick="feelingLucky()">Pregunta random</button>
                 </div>
             </div>
         </div>
@@ -457,15 +457,45 @@
         marked.setOptions({ breaks: true, gfm: true });
 
         const luckyQueries = [
+            // Conceptos básicos
             "¿Cuál es la regla número 1 de la inversión?",
-            "¿Qué opinan sobre invertir en Bitcoin u otras criptomonedas?",
-            "Tengo 25 años y no sé nada de finanzas. ¿Dónde meto mis ahorros?",
+            "Tengo 25 años y no sé nada de finanzas. ¿Por dónde empiezo?",
             "¿Cómo sé si una acción está barata o cara?",
-            "¿Debería intentar predecir lo que hará el mercado el próximo año?",
-            "Explícame el concepto de 'margen de seguridad' como si fuera un niño de 10 años.",
+            "Explicame el concepto de 'margen de seguridad' como si fuera un niño de 10 años.",
             "¿Qué es un foso económico y por qué es tan importante?",
-            "Analiza Apple AAPL como inversión a largo plazo.",
-            "¿Qué opinas sobre el mercado emergente latinoamericano hoy?",
+            "¿Qué diferencia hay entre un inversor defensivo y uno emprendedor?",
+            "¿Por qué no tiene sentido intentar predecir lo que va a hacer el mercado?",
+            "¿Qué es el PEG ratio y cómo se usa para evaluar una acción?",
+            "Explicame qué es el pensamiento de segundo nivel en inversiones.",
+
+            // Contexto argentino
+            "Tengo $5.000 USD ahorrados en Argentina. ¿Dónde los pongo?",
+            "¿Conviene más un plazo fijo UVA o un bono CER hoy?",
+            "¿Qué son los CEDEARs y cómo funcionan para un argentino?",
+            "¿Cuál es la diferencia entre el dólar MEP y el dólar CCL?",
+            "¿Qué son las Obligaciones Negociables y por qué son populares en Argentina?",
+            "¿Cómo impacta el riesgo país en el precio de los bonos argentinos?",
+            "Quiero dolarizarme sin salir del mercado local. ¿Qué opciones tengo?",
+            "¿Tiene sentido invertir en acciones del MERVAL hoy o es demasiado riesgoso?",
+            "¿Qué es mejor para preservar el capital en pesos: LECAP, CER o plazo fijo?",
+            "Explícame cómo armar una cartera simple y diversificada desde Argentina.",
+            "¿Cuándo conviene vender un bono soberano argentino como el AL30?",
+
+            // Análisis de activos concretos
+            "Analizá YPF (YPFD) como inversión a largo plazo.",
+            "¿Vale la pena entrar al CEDEAR de Berkshire Hathaway hoy?",
+            "Analizá el CEDEAR de Apple (AAPL) para un inversor argentino conservador.",
+            "¿Qué pensás del CEDEAR del ETF SPY para diversificar en dólares?",
+            "Analizá Pampa Energía (PAMP) como inversión en el mercado local.",
+            "¿Conviene comprar GD30 o AL30 hoy?",
+            "Analizá Mercado Libre (MELI) para un inversor argentino.",
+            "¿Qué opinas del sector bancario argentino: GGAL vs BMA vs BBAR?",
+
+            // Filosofía y psicología inversora
+            "¿Qué haría un inversor racional frente a una caída brusca del MERVAL?",
+            "¿Por qué la mayoría de los inversores activos le gana menos al índice?",
+            "¿En qué punto del ciclo económico estamos y cómo afecta las inversiones?",
+            "¿Qué es el 'two-minute drill' de Peter Lynch y cómo se aplica?",
         ];
 
         queryInput.addEventListener('input', () => {
