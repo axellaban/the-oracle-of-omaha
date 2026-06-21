@@ -27,12 +27,11 @@ def load_book_knowledge():
         book_path = os.path.join(skills_dir, book_dir)
         if not os.path.isdir(book_path):
             continue
-        for filename in ["SKILL.md", "cheatsheet.md", "patterns.md", "glossary.md"]:
-            filepath = os.path.join(book_path, filename)
-            if os.path.exists(filepath):
-                with open(filepath, "r", encoding="utf-8") as f:
-                    content = f.read()
-                knowledge_parts.append("### [" + book_dir + "] " + filename + "\n" + content)
+        filepath = os.path.join(book_path, "SKILL.md")
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+            knowledge_parts.append("### [" + book_dir + "]\n" + content)
 
     return "\n\n---\n\n".join(knowledge_parts)
 
