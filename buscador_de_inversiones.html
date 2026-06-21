@@ -879,20 +879,7 @@
                     }).catch(() => {});
                 });
 
-                const resendBtn = document.createElement('button');
-                resendBtn.className = 'copy-btn';
-                resendBtn.title = 'Reenviar';
-                resendBtn.innerHTML = _RESEND_ICON + '<span>Reenviar</span>';
-                resendBtn.addEventListener('click', () => {
-                    if (isWaitingForResponse) return;
-                    chatHistory.push({ role: "user", parts: [{ text: text }] });
-                    appendMessage('user', text);
-                    setLoading(true);
-                    fetchAIResponse();
-                });
-
                 userActionsDiv.appendChild(userCopyBtn);
-                userActionsDiv.appendChild(resendBtn);
                 chatHistoryContainer.appendChild(userActionsDiv);
             }
 

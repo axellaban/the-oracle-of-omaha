@@ -389,8 +389,12 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
     }
 
-    for _ in range(5):
-        resp = http.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=45)
+    MAX_ITERS = 7
+    for i in range(MAX_ITERS):
+        # On the last iteration strip tools so the model is forced to return text
+        send_payload = {k: v for k, v in payload.items() if k != "tools"} \
+            if i == MAX_ITERS - 1 else payload
+        resp = http.post(url, json=send_payload, headers={"Content-Type": "application/json"}, timeout=45)
         if resp.status_code != 200:
             raise Exception("Gemini API error " + str(resp.status_code) + ": " + resp.text[:300])
 
@@ -456,8 +460,12 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
     payload = {"model": claude_model, "max_tokens": 8192, "system": SYSTEM_PROMPT, "tools": tools, "messages": claude_msgs}
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
 
-    for _ in range(5):
-        resp = http.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=45)
+    MAX_ITERS = 7
+    for i in range(MAX_ITERS):
+        # On the last iteration strip tools so the model is forced to return text
+        send_payload = {k: v for k, v in payload.items() if k != "tools"} \
+            if i == MAX_ITERS - 1 else payload
+        resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=45)
         if resp.status_code != 200:
             raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
 
@@ -485,7 +493,8 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
 
         return {"response": " ".join(text_blocks), "meta": meta}
 
-    return {"response": "Se excedio el numero maximo de busquedas.", "meta": meta}
+    # Should never reach here (last iteration strips tools forcing a text reply)
+    return {"response": "Error inesperado al generar la respuesta.", "meta": meta}
 
 
 # ─── Route ──────────────────────────────────────────────────────────────────
