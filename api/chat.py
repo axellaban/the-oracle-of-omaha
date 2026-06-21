@@ -10,7 +10,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # ─── Load Book Skills Knowledge Base ────────────────────────────────────────
 def load_book_knowledge():
