@@ -204,14 +204,13 @@
         }
 
         .ai-message .content {
-            background-color: #f0f4f9;
+            background-color: transparent;
             color: #1f1f1f;
-            padding: 18px 24px;
-            border-radius: 22px 22px 22px 6px;
+            padding: 2px 0;
             font-size: 15.5px;
-            width: fit-content;
-            max-width: 88%;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            width: 100%;
+            max-width: 100%;
+            box-shadow: none;
         }
 
         /* Metadata bar below AI responses */
@@ -463,6 +462,37 @@
         }
         #send-btn:hover:not(:disabled) { background: #1a73e8; transform: scale(1.06); }
         #send-btn:disabled { background: #dadce0; cursor: not-allowed; transform: none; }
+        #send-btn.stop-mode { background: #202124; }
+        #send-btn.stop-mode:hover { background: #3c4043; transform: scale(1.06); }
+
+        /* ─── Floating scroll-to-bottom button ───────────────────── */
+        #scroll-bottom-btn {
+            position: fixed;
+            left: 50%;
+            bottom: 88px;
+            transform: translateX(-50%) translateY(8px) scale(0.92);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.10);
+            box-shadow: 0 3px 12px rgba(0,0,0,0.14);
+            color: #3c4043;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 31;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s;
+        }
+        #scroll-bottom-btn.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0) scale(1);
+        }
+        #scroll-bottom-btn:hover { background: #f1f3f4; }
 
         /* ─── Response action buttons (copy) ─────────────────────── */
         .response-actions {
@@ -503,8 +533,8 @@
             .state-home #logo-container { font-size: 3.5rem; }
             .state-chat #header-area { padding: 12px 16px; }
             .state-chat #logo-container { font-size: 1.8rem; }
-            .user-message .content { max-width: 95%; border-radius: 18px 18px 4px 18px; }
-            .ai-message .content { max-width: 95%; border-radius: 18px 18px 18px 4px; }
+            .user-message .content { max-width: 90%; border-radius: 18px 18px 4px 18px; }
+            .ai-message .content { max-width: 100%; }
             #chat-area { padding: 20px 15px; }
             .response-meta { margin-left: 0; }
             #chat-textarea { font-size: 16px; }
@@ -561,14 +591,26 @@
                 </button>
             </div>
         </div>
+
+        <!-- Floating "scroll to bottom" button (chat mode, when scrolled up) -->
+        <button id="scroll-bottom-btn" title="Bajar al final" aria-label="Bajar al final">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <polyline points="19 12 12 19 5 12"/>
+            </svg>
+        </button>
     </div>
 
     <div id="footer"></div>
 
     <script>
         let chatHistory = [];
+        let aiMetas = [];                 // meta of each successful AI turn (aligned with model entries)
         let isChatMode = false;
         let isWaitingForResponse = false;
+        let currentAbortController = null; // for the Stop button
+        let prevRegenBtn = null;           // regen button of the most recent AI turn
+        const STORAGE_KEY = 'oracle_chat_v1';
 
         // Agent thinking animation state
         let agentThinkingEl = null;
@@ -617,11 +659,17 @@
                 if (!sendBtn.disabled) submitQuery();
             }
         });
-        sendBtn.addEventListener('click', () => { if (!sendBtn.disabled) submitQuery(); });
+        sendBtn.addEventListener('click', () => {
+            if (isWaitingForResponse) { stopGeneration(); return; }
+            if (!sendBtn.disabled) submitQuery();
+        });
 
         const _COPY_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
         const _CHECK_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13 l4 4 L19 7"/></svg>`;
         const _RESEND_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>`;
+        const _REGEN_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`;
+        const _SEND_BTN_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
+        const _STOP_BTN_SVG = `<svg width="15" height="15" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`;
 
         const luckyQueries = [
             // Conceptos básicos
@@ -693,11 +741,15 @@
             mainContainer.classList.remove('state-chat');
             mainContainer.classList.add('state-home');
             chatHistory = [];
+            aiMetas = [];
+            prevRegenBtn = null;
             chatHistoryContainer.innerHTML = '';
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
             clearInput();
             chatTextarea.value = '';
             chatTextarea.style.height = 'auto';
             sendBtn.disabled = true;
+            updateScrollBtn();
             document.title = "Oracle of Omaha - Consejos de Inversión";
         }
 
@@ -834,6 +886,19 @@
                     }).catch(() => {});
                 });
                 actionsDiv.appendChild(copyBtn);
+
+                // Regenerate button — only the most recent real AI response keeps it
+                if (meta) {
+                    if (prevRegenBtn) { prevRegenBtn.remove(); prevRegenBtn = null; }
+                    const regenBtn = document.createElement('button');
+                    regenBtn.className = 'copy-btn';
+                    regenBtn.title = 'Regenerar respuesta';
+                    regenBtn.innerHTML = _REGEN_ICON + '<span>Regenerar</span>';
+                    regenBtn.addEventListener('click', () => regenerateLast());
+                    actionsDiv.appendChild(regenBtn);
+                    prevRegenBtn = regenBtn;
+                }
+
                 chatHistoryContainer.appendChild(actionsDiv);
 
                 if (meta) {
@@ -893,20 +958,34 @@
             loadingIndicator.style.display = 'none'; // agent-thinking replaces typing dots
             queryInput.disabled = isLoading;
             chatTextarea.disabled = isLoading;
-            sendBtn.disabled = isLoading;
             if (isLoading) {
+                // Send button becomes a Stop button (enabled, clickable)
+                sendBtn.disabled = false;
+                sendBtn.classList.add('stop-mode');
+                sendBtn.title = 'Detener';
+                sendBtn.innerHTML = _STOP_BTN_SVG;
                 showAgentThinking();
             } else {
+                sendBtn.classList.remove('stop-mode');
+                sendBtn.title = 'Enviar';
+                sendBtn.innerHTML = _SEND_BTN_SVG;
+                sendBtn.disabled = chatTextarea.value.trim().length === 0;
                 if (isChatMode) chatTextarea.focus(); else queryInput.focus();
             }
         }
 
+        function stopGeneration() {
+            if (currentAbortController) currentAbortController.abort();
+        }
+
         async function fetchAIResponse() {
+            currentAbortController = new AbortController();
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ messages: chatHistory, llm: 'gemini' }),
+                    signal: currentAbortController.signal,
                 });
 
                 if (!response.ok) {
@@ -925,10 +1004,19 @@
                 const aiText = result.response;
                 const meta = result.meta || null;
                 chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                aiMetas.push(meta);
                 appendMessage('ai', aiText, meta);
+                saveConversation();
 
             } catch (error) {
                 removeBadge();
+                if (error.name === 'AbortError') {
+                    // User stopped: drop the dangling user turn (its DOM message
+                    // stays with a Reenviar button so they can re-send).
+                    chatHistory.pop();
+                    saveConversation();
+                    return;
+                }
                 console.error("Error al contactar al Oráculo:", error);
                 const errMsg = error.message && error.message.length < 300
                     ? `⚠️ ${error.message}`
@@ -938,9 +1026,86 @@
                 // doesn't see a dangling user turn without a response on retry
                 chatHistory.pop();
             } finally {
+                currentAbortController = null;
                 setLoading(false);
             }
         }
+
+        // ── Persistence (survive refresh / accidental close) ────────
+        function saveConversation() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ chatHistory, aiMetas }));
+            } catch (e) { /* quota or private mode: ignore */ }
+        }
+
+        function restoreConversation() {
+            let data;
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                data = JSON.parse(raw);
+            } catch (e) { return; }
+            if (!data || !Array.isArray(data.chatHistory) || data.chatHistory.length === 0) return;
+
+            chatHistory = data.chatHistory;
+            aiMetas = Array.isArray(data.aiMetas) ? data.aiMetas : [];
+
+            // Enter chat mode instantly (no entrance animation on reload)
+            isChatMode = true;
+            mainContainer.classList.remove('state-home');
+            mainContainer.classList.add('state-chat');
+            document.title = "Oracle of Omaha - Resultados";
+
+            let metaIdx = 0;
+            for (const turn of chatHistory) {
+                const text = (turn.parts && turn.parts[0] && turn.parts[0].text) || '';
+                if (turn.role === 'user') {
+                    appendMessage('user', text);
+                } else {
+                    appendMessage('ai', text, aiMetas[metaIdx++] || null);
+                }
+            }
+            setTimeout(scrollToBottom, 120);
+        }
+
+        // ── Regenerate the last AI response ─────────────────────────
+        function regenerateLast() {
+            if (isWaitingForResponse) return;
+            if (!chatHistory.length || chatHistory[chatHistory.length - 1].role !== 'model') return;
+            chatHistory.pop();
+            aiMetas.pop();
+            removeLastAiDom();
+            saveConversation();
+            setLoading(true);
+            fetchAIResponse();
+        }
+
+        function removeLastAiDom() {
+            let node = chatHistoryContainer.lastElementChild;
+            while (node && (node.classList.contains('response-meta') || node.classList.contains('response-actions'))) {
+                const prev = node.previousElementSibling;
+                node.remove();
+                node = prev;
+            }
+            if (node && node.classList.contains('ai-message')) node.remove();
+            prevRegenBtn = null;
+        }
+
+        // ── Floating scroll-to-bottom button ────────────────────────
+        const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+        function updateScrollBtn() {
+            if (!isChatMode) { scrollBottomBtn.classList.remove('visible'); return; }
+            const distanceFromBottom =
+                document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+            scrollBottomBtn.classList.toggle('visible', distanceFromBottom > 240);
+        }
+        scrollBottomBtn.addEventListener('click', () => scrollToBottom());
+        window.addEventListener('scroll', updateScrollBtn, { passive: true });
+        window.addEventListener('resize', updateScrollBtn, { passive: true });
+
+        // ── Startup: restore previous conversation if any ───────────
+        restoreConversation();
+        updateScrollBtn();
     </script>
 </body>
 </html>
