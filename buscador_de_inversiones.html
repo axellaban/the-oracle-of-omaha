@@ -337,71 +337,29 @@
         }
         .state-chat #footer { opacity: 0; pointer-events: none; }
 
-        /* ─── Agent thinking terminal ─────────────────────────── */
+        /* ─── Agent thinking (single-line, Claude-style) ──────── */
         .agent-thinking {
-            width: 100%;
-            max-width: 720px;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 14px 18px 16px;
-            margin: 4px 0 14px 0;
-            overflow: hidden;
-        }
-        .at-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 10px;
-            padding-bottom: 9px;
-            border-bottom: 1px solid #21262d;
-            color: #8b949e;
-            font-size: 11px;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
+            padding: 6px 2px 10px;
+            color: #70757a;
+            font-size: 13.5px;
+            font-style: italic;
         }
         .at-dot {
-            width: 8px; height: 8px;
+            width: 7px; height: 7px;
             border-radius: 50%;
-            background: #3fb950;
+            background: #1a73e8;
             flex-shrink: 0;
-            animation: atPulse 1.2s ease-in-out infinite;
+            animation: atPulse 1.1s ease-in-out infinite;
         }
         @keyframes atPulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(63,185,80,0.5); }
-            50%       { opacity: 0.7; box-shadow: 0 0 0 5px rgba(63,185,80,0); }
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.2; }
         }
-        .at-steps {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            max-height: 200px;
-            overflow: hidden;
-        }
-        .at-step {
-            font-family: 'Courier New', monospace;
-            font-size: 12.5px;
-            line-height: 1.5;
-            color: #8b949e;
-            opacity: 0;
-            transform: translateY(5px);
-            animation: atStepIn 0.35s ease forwards;
-        }
-        .at-step.at-active {
-            color: #e6edf3;
-        }
-        .at-step.at-active::after {
-            content: '▋';
-            color: #3fb950;
-            animation: atBlink 0.75s step-end infinite;
-            margin-left: 2px;
-        }
-        @keyframes atStepIn {
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes atBlink {
-            0%, 100% { opacity: 1; } 50% { opacity: 0; }
+        .at-text {
+            transition: opacity 0.18s ease;
         }
 
         /* ─── Enhanced response meta ───────────────────────────── */
@@ -608,23 +566,23 @@
         let agentStepIndex = 0;
 
         const agentSteps = [
-            '🌐 Conectando a fuentes de datos financieros en tiempo real...',
-            '🔍 Buscando: últimas noticias y novedades 2026...',
-            '📰 Scrapeando: Bloomberg · Reuters · Ámbito · Infobae Economía · El Cronista...',
-            '🔍 Buscando: análisis fundamental · múltiplos de valuación · earnings...',
-            '📊 Extrayendo: precios · volúmenes · márgenes · métricas clave...',
-            '🔍 Buscando: riesgo regulatorio · contexto macro · riesgo país...',
-            '🧮 Procesando señales · filtrando ruido · priorizando data relevante...',
-            '📚 Cargando 7 frameworks: Graham · Lynch · Dalio · Marks · Soros · Klarman · Munger...',
-            '🏛️  Warren Buffett: evaluando ventaja competitiva duradera y moat económico...',
-            '📉  Charlie Munger: analizando calidad del management y sesgos cognitivos...',
-            '📈  Peter Lynch: calculando crecimiento a precio razonable (PEG ratio)...',
-            '🌊  Ray Dalio: revisando ciclos macroeconómicos y correlación entre activos...',
-            '🎯  Benjamin Graham: calculando valor intrínseco y margen de seguridad...',
-            '⚖️   Howard Marks: evaluando el ciclo de mercado y balance riesgo/retorno...',
-            '🔮  George Soros: analizando reflexividad y sesgos del mercado...',
-            '🤝 Consejo de 7 deliberando · identificando consensos y divergencias...',
-            '✅ Sintetizando recomendación final con acción concreta...',
+            'Conectando a fuentes de datos en tiempo real...',
+            'Buscando últimas noticias y novedades 2026...',
+            'Scrapeando Bloomberg, Reuters, Ámbito, Infobae...',
+            'Buscando análisis fundamental y múltiplos de valuación...',
+            'Extrayendo precios, márgenes y métricas clave...',
+            'Buscando riesgo macro, regulatorio y contexto país...',
+            'Procesando señales y filtrando ruido...',
+            'Cargando 7 frameworks: Graham · Lynch · Dalio · Marks · Soros · Klarman · Munger...',
+            'Warren Buffett analizando ventaja competitiva y moat...',
+            'Charlie Munger evaluando management y sesgos cognitivos...',
+            'Peter Lynch calculando crecimiento a precio razonable...',
+            'Ray Dalio revisando ciclos macroeconómicos...',
+            'Benjamin Graham calculando margen de seguridad...',
+            'Howard Marks evaluando el ciclo de mercado y riesgo...',
+            'George Soros analizando reflexividad del mercado...',
+            'Consejo de 7 deliberando y buscando consenso...',
+            'Sintetizando recomendación final...',
         ];
 
         const mainContainer = document.getElementById('main-container');
@@ -765,34 +723,29 @@
 
             agentThinkingEl = document.createElement('div');
             agentThinkingEl.className = 'agent-thinking';
-            agentThinkingEl.innerHTML =
-                '<div class="at-header"><div class="at-dot"></div><span>Oracle Council &middot; Investigando...</span></div>' +
-                '<div class="at-steps" id="at-steps-list"></div>';
+            agentThinkingEl.innerHTML = '<div class="at-dot"></div><span class="at-text"></span>';
             chatHistoryContainer.appendChild(agentThinkingEl);
             scrollToBottom();
 
-            const stepsList = agentThinkingEl.querySelector('#at-steps-list');
+            const textEl = agentThinkingEl.querySelector('.at-text');
 
-            function addNextStep() {
+            function updateStep() {
                 if (!agentThinkingEl) return;
-                const prev = stepsList.querySelector('.at-active');
-                if (prev) prev.classList.remove('at-active');
-
                 if (agentStepIndex < agentSteps.length) {
-                    const el = document.createElement('div');
-                    el.className = 'at-step at-active';
-                    el.textContent = agentSteps[agentStepIndex++];
-                    stepsList.appendChild(el);
-                    stepsList.scrollTop = stepsList.scrollHeight;
-                    scrollToBottom();
+                    textEl.style.opacity = '0';
+                    setTimeout(() => {
+                        if (!agentThinkingEl) return;
+                        textEl.textContent = agentSteps[agentStepIndex++];
+                        textEl.style.opacity = '1';
+                    }, 180);
                 } else {
                     clearInterval(agentInterval);
                     agentInterval = null;
                 }
             }
 
-            addNextStep();
-            agentInterval = setInterval(addNextStep, 1700);
+            updateStep();
+            agentInterval = setInterval(updateStep, 2000);
         }
 
         function removeBadge() {
