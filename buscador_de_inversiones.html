@@ -904,54 +904,17 @@
                 });
                 actionsDiv.appendChild(copyBtn);
 
-                // Regenerate button — only the most recent real AI response keeps it
-                if (meta) {
-                    if (prevRegenBtn) { prevRegenBtn.remove(); prevRegenBtn = null; }
-                    const regenBtn = document.createElement('button');
-                    regenBtn.className = 'copy-btn';
-                    regenBtn.title = 'Regenerar respuesta';
-                    regenBtn.innerHTML = _REGEN_ICON + '<span>Regenerar</span>';
-                    regenBtn.addEventListener('click', () => regenerateLast());
-                    actionsDiv.appendChild(regenBtn);
-                    prevRegenBtn = regenBtn;
-                }
+                // Regenerate button — moves to the most recent AI response only
+                if (prevRegenBtn) { prevRegenBtn.remove(); prevRegenBtn = null; }
+                const regenBtn = document.createElement('button');
+                regenBtn.className = 'copy-btn';
+                regenBtn.title = 'Regenerar respuesta';
+                regenBtn.innerHTML = _REGEN_ICON + '<span>Regenerar</span>';
+                regenBtn.addEventListener('click', () => regenerateLast());
+                actionsDiv.appendChild(regenBtn);
+                prevRegenBtn = regenBtn;
 
                 chatHistoryContainer.appendChild(actionsDiv);
-
-                if (meta) {
-                    const metaDiv = document.createElement('div');
-                    metaDiv.className = 'response-meta';
-
-                    let metaHTML = '<span class="meta-model-badge">✨ ' + escapeHTML(meta.model || 'AI') + '</span>';
-                    metaHTML += '<span class="meta-dot"></span>';
-                    metaHTML += '<span class="meta-council-badge">📚 Consejo de 7</span>';
-
-                    if (meta.firecrawl_used && meta.firecrawl_pages > 0) {
-                        const srcLabel = meta.search_source === 'firecrawl' ? '🔥 Firecrawl' : '🌐 Google';
-                        const nSearches = meta.firecrawl_searches;
-                        const nResults = meta.firecrawl_pages;
-                        metaHTML += '<span class="meta-dot"></span>';
-                        metaHTML += '<span class="meta-item firecrawl-badge">' + srcLabel + ': ' +
-                            nSearches + (nSearches === 1 ? ' búsqueda' : ' búsquedas') +
-                            ' &middot; ' + nResults + (nResults === 1 ? ' resultado' : ' resultados') + ' procesados</span>';
-                        if (meta.firecrawl_queries && meta.firecrawl_queries.length > 0) {
-                            meta.firecrawl_queries.slice(0, 3).forEach(function(q) {
-                                const display = q.length > 48 ? q.substring(0, 48) + '…' : q;
-                                metaHTML += '<span class="meta-dot"></span>';
-                                metaHTML += '<span class="meta-query-chip" title="' + escapeHTML(q) + '">🔍 &ldquo;' + escapeHTML(display) + '&rdquo;</span>';
-                            });
-                        }
-                    } else if (meta.firecrawl_used && meta.firecrawl_pages === 0) {
-                        metaHTML += '<span class="meta-dot"></span>';
-                        metaHTML += '<span class="meta-item" style="color:#ea4335">⚠️ Búsqueda web falló</span>';
-                    } else {
-                        metaHTML += '<span class="meta-dot"></span>';
-                        metaHTML += '<span class="meta-item">📂 Conocimiento base</span>';
-                    }
-
-                    metaDiv.innerHTML = metaHTML;
-                    chatHistoryContainer.appendChild(metaDiv);
-                }
             }
 
             scrollToBottom();
