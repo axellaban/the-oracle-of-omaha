@@ -575,7 +575,7 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
 
 # ─── Claude API ─────────────────────────────────────────────────────────────
 def call_claude(messages, api_key, firecrawl_key, serper_key):
-    claude_model = "claude-sonnet-4-20250514"
+    claude_model = "claude-sonnet-4-6"
     meta = {
         "model": claude_model,
         "firecrawl_used": False,
@@ -648,24 +648,27 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
 def chat():
     data = request.json
     messages = data.get("messages", [])
-    llm = data.get("llm", "gemini")
 
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip().strip("'\"")
     claude_key = os.getenv("ANTHROPIC_API_KEY", "").strip().strip("'\"")
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY", "").strip().strip("'\"")
     serper_key = os.getenv("SERPER_API_KEY", "").strip().strip("'\"")
 
-    try:
-        if llm == "claude":
-            if not claude_key:
-                return jsonify({"error": "ANTHROPIC_API_KEY no configurada"}), 400
+    # Claude primary, Gemini fallback
+    if claude_key:
+        try:
             result = call_claude(messages, claude_key, firecrawl_key, serper_key)
-        else:
-            if not gemini_key:
-                return jsonify({"error": "GEMINI_API_KEY no configurada"}), 400
+            meta = {k: v for k, v in result["meta"].items() if k != "model"}
+            return jsonify({"response": result["response"], "meta": meta})
+        except Exception:
+            pass  # fall through to Gemini
+
+    if gemini_key:
+        try:
             result = call_gemini(messages, gemini_key, firecrawl_key, serper_key)
+            meta = {k: v for k, v in result["meta"].items() if k != "model"}
+            return jsonify({"response": result["response"], "meta": meta})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-        return jsonify({"response": result["response"], "meta": result["meta"]})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "No hay API keys configuradas"}), 500
