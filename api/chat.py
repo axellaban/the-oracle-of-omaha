@@ -5,6 +5,7 @@ POST /api/chat — Calls Gemini/Claude with 7 book skills + Firecrawl web search
 import os
 import json
 import requests as http
+from requests.exceptions import Timeout as RequestTimeout
 from datetime import datetime
 from flask import Flask, request, jsonify
 
@@ -242,10 +243,10 @@ Cada clase de activo tiene un dato pilar sin el cual la tesis no es evaluable. E
 
 | Clase de activo | Dato pilar | Búsqueda sugerida |
 |---|---|---|
-| Acciones/CEDEARs | Compras/ventas de insiders o flujos institucionales (13F, Form 4) | "[empresa] insider buying SEC filing {año}" |
-| Crypto | ETF net inflows/outflows en USD (datos diarios/semanales) | "Bitcoin ETF flows weekly {año}" |
-| Commodities (oro, plata) | Compras/ventas de bancos centrales en toneladas; COT commercial net position | "central bank gold purchases {año}" / "gold COT report {año}" |
-| Bonos soberanos | Flujos de fondos institucionales; tenencias de no-residentes | "treasury foreign holdings {año}" |
+| Acciones/CEDEARs | Compras/ventas de insiders o flujos institucionales (13F, Form 4) | "[empresa] insider buying SEC filing {_YEAR}" |
+| Crypto | ETF net inflows/outflows en USD (datos diarios/semanales) | "Bitcoin ETF flows weekly {_YEAR}" |
+| Commodities (oro, plata) | Compras/ventas de bancos centrales en toneladas; COT commercial net position | "central bank gold purchases {_YEAR}" / "gold COT report {_YEAR}" |
+| Bonos soberanos | Flujos de fondos institucionales; tenencias de no-residentes | "treasury foreign holdings {_YEAR}" |
 
 Si el dato pilar sigue en n/d después de la búsqueda específica → la síntesis debe declarar: *"Tesis no evaluable a pleno: falta el dato pilar [X]. Veredictos de Thorndike y Klarman emitidos con confianza baja."*
 
@@ -572,7 +573,7 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
         # On the last iteration strip tools so the model is forced to return text
         send_payload = {k: v for k, v in payload.items() if k != "tools"} \
             if i == MAX_ITERS - 1 else payload
-        resp = http.post(url, json=send_payload, headers={"Content-Type": "application/json"}, timeout=45)
+        resp = http.post(url, json=send_payload, headers={"Content-Type": "application/json"}, timeout=40)
         if resp.status_code != 200:
             raise Exception("Gemini API error " + str(resp.status_code) + ": " + resp.text[:300])
 
@@ -643,7 +644,7 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
         # On the last iteration strip tools so the model is forced to return text
         send_payload = {k: v for k, v in payload.items() if k != "tools"} \
             if i == MAX_ITERS - 1 else payload
-        resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=45)
+        resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=40)
         if resp.status_code != 200:
             raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
 
@@ -688,20 +689,33 @@ def chat():
     serper_key = os.getenv("SERPER_API_KEY", "").strip().strip("'\"")
 
     # Claude primary, Gemini fallback
+    claude_error = None
     if claude_key:
         try:
             result = call_claude(messages, claude_key, firecrawl_key, serper_key)
             meta = {k: v for k, v in result["meta"].items() if k != "model"}
             return jsonify({"response": result["response"], "meta": meta})
-        except Exception:
-            pass  # fall through to Gemini
+        except RequestTimeout:
+            # Timeout: no fallback — starting Gemini would also timeout and kill Vercel function
+            return jsonify({"error": "La consulta tardó demasiado. Intentá reformularla más corta o volvé a intentarlo en un momento."}), 503
+        except Exception as e:
+            claude_error = str(e)[:300]
+            # Non-timeout error: fall through to Gemini
 
     if gemini_key:
         try:
             result = call_gemini(messages, gemini_key, firecrawl_key, serper_key)
             meta = {k: v for k, v in result["meta"].items() if k != "model"}
             return jsonify({"response": result["response"], "meta": meta})
+        except RequestTimeout:
+            return jsonify({"error": "La consulta tardó demasiado. Intentá reformularla más corta o volvé a intentarlo en un momento."}), 503
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            gemini_detail = str(e)[:300]
+            if claude_error:
+                return jsonify({"error": f"Ambos modelos fallaron. Claude: {claude_error} | Gemini: {gemini_detail}"}), 500
+            return jsonify({"error": gemini_detail}), 500
 
-    return jsonify({"error": "No hay API keys configuradas"}), 500
+    if claude_error:
+        return jsonify({"error": f"Claude falló y no hay Gemini configurado: {claude_error}"}), 500
+
+    return jsonify({"error": "No hay API keys configuradas (verificar ANTHROPIC_API_KEY y GEMINI_API_KEY en Vercel)"}), 500
