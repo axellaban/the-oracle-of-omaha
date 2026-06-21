@@ -154,7 +154,7 @@
         .state-chat #chat-area { display: flex; }
 
         .message {
-            margin-bottom: 30px;
+            margin-bottom: 4px;
             max-width: 100%;
             line-height: 1.6;
             animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -527,7 +527,8 @@
         .response-actions {
             display: flex;
             gap: 2px;
-            margin-top: 4px;
+            margin-top: 2px;
+            margin-bottom: 28px;
             opacity: 0;
             animation: slideUpFade 0.3s ease 0.15s forwards;
         }
@@ -535,8 +536,8 @@
             display: flex;
             justify-content: flex-end;
             gap: 2px;
-            margin-top: 4px;
-            margin-bottom: 4px;
+            margin-top: 2px;
+            margin-bottom: 28px;
             opacity: 0;
             animation: slideUpFade 0.3s ease 0.1s forwards;
         }
@@ -904,15 +905,17 @@
                 });
                 actionsDiv.appendChild(copyBtn);
 
-                // Regenerate button — moves to the most recent AI response only
-                if (prevRegenBtn) { prevRegenBtn.remove(); prevRegenBtn = null; }
-                const regenBtn = document.createElement('button');
-                regenBtn.className = 'copy-btn';
-                regenBtn.title = 'Regenerar respuesta';
-                regenBtn.innerHTML = _REGEN_ICON + '<span>Regenerar</span>';
-                regenBtn.addEventListener('click', () => regenerateLast());
-                actionsDiv.appendChild(regenBtn);
-                prevRegenBtn = regenBtn;
+                // Regenerar: only on successful (meta-carrying) responses, always the latest
+                if (meta) {
+                    if (prevRegenBtn) { prevRegenBtn.remove(); prevRegenBtn = null; }
+                    const regenBtn = document.createElement('button');
+                    regenBtn.className = 'copy-btn';
+                    regenBtn.title = 'Regenerar respuesta';
+                    regenBtn.innerHTML = _REGEN_ICON + '<span>Regenerar</span>';
+                    regenBtn.addEventListener('click', () => regenerateLast());
+                    actionsDiv.appendChild(regenBtn);
+                    prevRegenBtn = regenBtn;
+                }
 
                 chatHistoryContainer.appendChild(actionsDiv);
             }
