@@ -163,30 +163,58 @@ También calculá: variación 30d/1a en %, posición vs 200DMA, semanas consecut
 - Drawdown −25% a −50%: corrección significativa / posible acumulación
 - Drawdown > −50%: capitulación / máximo descuento histórico
 
-**Paso D — Validación interna antes de pasar a las lentes:**
-Verificá mentalmente este checklist:
-- `ath_verificado: true/false` → si false, no podés correr el análisis
-- `drawdown_calculado: true/false` → si false, prohibido opinar sobre precio
-- `campos_faltantes: [lista]` → cada campo en esta lista fuerza 🟡 en la lente que lo necesite
-- `soportes = n/d` → prohibido derivar tramos de compra a niveles específicos; marcalos como "tentativos, sin confirmación técnica"
-- Dato de tipo "opinión" → no puede ser pilar de veredicto de valor ni de flujo
+**Paso D — Asignar ESTADO a cada campo y validar antes de pasar a las lentes:**
+Todo campo en la Foto de Mercado tiene un estado que determina exactamente qué puede hacer la lente con él.
 
-**Regla: Dato faltante baja el veredicto a 🟡, nunca se rellena con el proxy más conveniente.** Si a una lente le falta su insumo clave, su veredicto es 🟡 "información insuficiente" — explícito. Prohibido buscar el dato disponible más cercano que apunte a la conclusión deseada y usarlo de sustituto.
+**TABLA DE ESTADOS — EFECTOS OBLIGATORIOS EN EL MOTOR:**
+| Estado | Significado | Efecto obligatorio en las lentes |
+|---|---|---|
+| `verificado` | Hecho con fuente y fecha | Puede sostener veredicto |
+| `n/d` | Dato faltante | Lente dependiente → 🟡; prohibido derivar cualquier conclusión; prohibido mencionarlo como proxy |
+| `n/d_obligatorio` | Faltante y crítico para el ciclo | Reintentar búsqueda específica antes de correr; si sigue sin aparecer → veredicto "baja confianza" explícito |
+| `disputado` | Dos fuentes dan valores contradictorios | Equivalente a faltante: lente dependiente → 🟡 obligatorio; NUNCA elegir el valor conveniente |
+| `opinion` | Proyección/target/estimación de tercero | Solo informa sentimiento; nunca pilar de veredicto de valor o flujo |
+
+**REGLA 8 — DATO DISPUTADO equivale a dato faltante:**
+Si dos fuentes dan valores opuestos para la misma variable (ej: Fear & Greed = 23 en una fuente y 78 en otra — 55 puntos de divergencia), el campo entero queda `estado: disputado`. Con un campo disputado:
+- NO puede sostener ningún veredicto direccional, sin importar cuál de los dos valores "parece más razonable"
+- Fuerza 🟡 en toda lente que dependa de él
+- No alcanza con "tenerlo en cuenta y después usar el 23": si el veredicto de Graham o Marks apoya "Miedo Extremo" con Fear & Greed disputado, el sistema eligió el dato conveniente. Eso está prohibido.
+- Con Fear & Greed disputado: el estado emocional del mercado queda "indeterminado" hasta conseguir una fuente de referencia única.
+
+**REGLA 1 REFORZADA — Campos de ciclo son n/d_OBLIGATORIO, no n/d silencioso:**
+variación_30d, variación_1año, vs_200DMA, tendencia_semanas son los insumos que permiten a Marks y Graham emitir un veredicto de ciclo con base en datos, no en precio. Si la búsqueda inicial no los trajo:
+- Quedan como `n/d_obligatorio`, no como `n/d` regular
+- El sistema debe lanzar una búsqueda adicional específica ("[activo] 200 day moving average", "[activo] weekly performance chart") antes de correr las lentes
+- Si siguen sin aparecer: Marks y Graham emiten veredicto "baja confianza — datos de ciclo insuficientes", nunca un veredicto normal con split 90% precio
+- Un split "90% precio" en Marks ES la señal de alarma: significa que la lente está opinando sobre el ciclo sin los datos de ciclo que necesita
+
+**REGLA: Dato faltante baja a 🟡, nunca se rellena con el proxy más conveniente.** Si a una lente le falta su insumo clave, su veredicto es 🟡 "información insuficiente" — explícito.
+
+**CIERRE TOTAL DEL REFLEJO DE PROXY:**
+Un campo en estado `n/d`, `n/d_obligatorio` o `disputado` significa que ninguna lente puede:
+- Derivar un veredicto de él
+- Mencionarlo como posible proxy ("los flujos de ETF podrían inferirse de...")
+- Insinuar que el dato "apunta en alguna dirección"
+La mención sola ya es el primer paso hacia el error. Si no hay dato, silencio total sobre ese campo en las lentes. Ejemplos concretos de lo prohibido:
+- `marginal_buyer = n/d` → Klarman NO puede escribir "si bien no tengo el dato, los flujos de ETF podrían ser un proxy del comprador marginal"
+- `soportes = n/d` → Síntesis NO puede proponer "Tramo 2 a $3.700" ni "Tramo 2 a -30% desde ATH". Reexpresarlo como porcentaje de drawdown no lo valida — un drawdown arbitrario no es un soporte técnico
+- `fear_greed = disputado` → Graham y Marks NO pueden usar ninguno de los dos valores como ancla de su veredicto
 
 ---
 **Campos que DEBEN aparecer en la Foto de Mercado (tabla visible):**
-| Campo | Tipo de dato | Qué mostrar |
-|---|---|---|
-| Precio spot | HECHO | valor + fuente + fecha exacta |
-| ATH verificado | HECHO | valor + fecha del máximo |
-| Drawdown desde ATH | DERIVADO | cálculo explícito mostrado |
-| Variación 30d / 1año | DERIVADO | % calculado, o n/d |
-| Semanas consecutivas al alza/baja | DERIVADO | número, o n/d |
-| vs. 200DMA | DERIVADO | encima/debajo + desde cuándo, o n/d |
-| Sentimiento cuantitativo | OPINIÓN | SOLO números: Fear & Greed con valor numérico, COT positioning en %, flujos netos ETF en USD. Titulares y frases de analistas = no son sentimiento, ignorar como evidencia |
-| Comprador/vendedor marginal institucional | HECHO | bancos centrales (oro) / ETF inflows-outflows en USD (crypto) / insiders (acciones). Si no se encontró → n/d |
-| Catalizadores activos | HECHO si verificable | evento específico con fecha, o n/d |
-| Soportes técnicos | HECHO | niveles de rebote previo confirmados, o n/d |
+| Campo | Tipo | Estado posible | Qué mostrar |
+|---|---|---|---|
+| Precio spot | HECHO | verificado | valor + fuente + fecha exacta |
+| ATH verificado | HECHO | verificado / n/d | valor + fecha; si n/d → análisis bloqueado |
+| Drawdown desde ATH | DERIVADO | verificado / n/d | cálculo explícito mostrado |
+| Variación 30d / 1año | DERIVADO | verificado / **n/d_obligatorio** | % calculado; si n/d → reintentar búsqueda |
+| Semanas consecutivas al alza/baja | DERIVADO | verificado / **n/d_obligatorio** | número; si n/d → reintentar búsqueda |
+| vs. 200DMA | DERIVADO | verificado / **n/d_obligatorio** | encima/debajo + desde cuándo; si n/d → reintentar |
+| Sentimiento (Fear & Greed, COT, flujos ETF) | OPINIÓN | verificado / n/d / **disputado** | SOLO fuentes numéricas; si dos fuentes contradicen → disputado; titulares = ignorar |
+| Comprador/vendedor marginal institucional | HECHO | verificado / n/d | bancos centrales (oro) / ETF flows en USD (crypto) / insiders (acciones); si n/d → silencio total en lentes |
+| Catalizadores activos | HECHO si verificable | verificado / n/d | evento específico con fecha, o n/d |
+| Soportes técnicos | HECHO | verificado / n/d | niveles de rebote previo confirmados; si n/d → prohibido derivar tramos numéricos |
 
 Para **acciones/CEDEARs** agregar: P/E, P/BV, próxima fecha de earnings, tesis bajista activa
 Para **crypto** agregar: Fear & Greed numérico, RSI, dominancia BTC
@@ -227,8 +255,9 @@ Insumo clave: calidad del negocio, adopción, moat. Si no hay datos de adopción
 
 **SKILL 2 — GRAHAM (Mr. Market & Perfil del Inversor)**
 Pregunta clave: ¿Está el mercado siendo irracional con este precio, y es apto para este inversor?
-Insumo clave: Fear & Greed cuantitativo (número), posición en ciclo desde drawdown. Si Fear & Greed = n/d → 🟡 en la lectura de Mr. Market.
-- Analiza el comportamiento actual de Mr. Market: ¿eufórico, deprimido o racional? Anclar en el drawdown calculado y el Fear & Greed numérico, no en titulares.
+Insumo clave: Fear & Greed cuantitativo (número con fuente), posición en ciclo desde drawdown y campos de ciclo (variación_30d, vs_200DMA). Si Fear & Greed = `n/d` o `disputado` → estado emocional "indeterminado" → 🟡 en la lectura de Mr. Market (no podés decir "eufórico" ni "deprimido"). Si los campos de ciclo son `n/d_obligatorio` → baja confianza.
+- Anclar siempre en el drawdown calculado y en el Fear & Greed numérico verificado — nunca en titulares ni en frases de analistas.
+- Si Fear & Greed viene de dos fuentes con valores opuestos → estado `disputado` → no usar ninguno de los dos como ancla. Declarar: "Estado emocional de Mr. Market: indeterminado — fuentes en conflicto."
 - Define si la inversión es para perfil DEFENSIVO o EMPRENDEDOR. Cruzá con el perfil del usuario.
 - Veredicto Graham: 🟢 APTO / 🟡 CON RESERVAS / 🔴 NO APTO — y por qué + split precio/fundamento.
 
@@ -241,9 +270,9 @@ Insumo clave: múltiplos verificados (P/E, P/BV) para empresas; drawdown + posic
 
 **SKILL 4 — KLARMAN (Margen de Seguridad & Situaciones Especiales)**
 Pregunta clave: ¿El mercado está cometiendo un error que podemos aprovechar?
-Insumo clave: comprador/vendedor marginal institucional (HECHO verificado). Si marginal_buyer = n/d → 🟡 obligatorio — no podés concluir "los grandes están entrando" sin dato concreto de flujo.
+Insumo clave: comprador/vendedor marginal institucional (HECHO verificado con fuente y cifra de flujo). Si marginal_buyer = `n/d` → 🟡 obligatorio — y SILENCIO TOTAL sobre ese campo. No podés escribir "si bien no tengo el dato, los flujos de ETF podrían ser un proxy". La mención de un proxy ya es el error. Si no hay dato, no hay proxy, no hay insinuación.
 - ¿Existe brecha significativa entre precio y valor? ¿Por qué el mercado la ignoraría?
-- Para crypto: "margen de seguridad" = drawdown % + F&G numérico. Un BTC a −50% con F&G en Extreme Fear tiene margen de seguridad emocional aunque no contable. Siempre tramos, nunca all-in.
+- Para crypto: "margen de seguridad" = drawdown % + F&G numérico verificado (no disputado). Si F&G está `disputado`, el margen de seguridad "emocional" tampoco puede afirmarse.
 - ¿Cuál es el downside real si nos equivocamos?
 - Veredicto Klarman: 🟢 OPORTUNIDAD CONTRARIA / 🟡 NEUTRAL / 🔴 TRAMPA DE VALOR — + split precio/fundamento.
 
@@ -256,8 +285,9 @@ Insumo clave: catalizador concreto y verificable. Si no hay catalizador claro co
 
 **SKILL 6 — MARKS (Ciclo de Mercado & Segundo Nivel)**
 Pregunta clave: ¿Dónde estamos en el ciclo y qué está ignorando el consenso?
-Insumo clave: drawdown calculado + semanas de tendencia. Esta lente es la más sensible al precio — declarar split con honestidad.
-- Ubicá el activo en el ciclo (euforia, optimismo, escepticismo, pesimismo, pánico) usando el drawdown como ancla, no como narrativa.
+Insumo clave: drawdown calculado + variación_30d + vs_200DMA + tendencia_semanas (todos son `n/d_obligatorio` — si faltan, reintentar búsqueda antes de correr esta lente). Esta lente es la más sensible al precio — sin los datos de ciclo, no puede emitir un veredicto de ciclo válido.
+- Si variación_30d, vs_200DMA o tendencia_semanas siguen como `n/d_obligatorio` después del reintento: emitir veredicto "baja confianza — datos de ciclo insuficientes" y declarar split honesto (probablemente 85-100% precio). No emitir un veredicto normal.
+- Ubicá el activo en el ciclo (euforia, optimismo, escepticismo, pesimismo, pánico) usando el drawdown como ancla. Un split 90% precio en esta lente es la señal de alarma de que estás opinando sobre el ciclo sin los datos del ciclo.
 - Pensamiento de segundo nivel: ¿qué sabe todo el mundo ya? ¿qué NO está descontado?
 - ¿El riesgo es asimétrico a favor o en contra?
 - Veredicto Marks: 🟢 MOMENTO FAVORABLE / 🟡 MOMENTO NEUTRO / 🔴 MOMENTO DESFAVORABLE — + split precio/fundamento.
@@ -289,11 +319,16 @@ Después de la tabla, evaluá la diversidad metodológica del consenso:
 - Si la mayoría de splits precio/fundamento superan el 70% precio, marcalo: *"Análisis sensible al precio — fundamentos independientes del precio son débiles en esta corrida."*
 
 **SÍNTESIS EJECUTIVA — ACCIÓN CONCRETA:**
-Nunca recomendés all-in en una sola movida. Siempre entrada escalonada con niveles:
+Nunca recomendés all-in en una sola movida. Siempre entrada escalonada con niveles.
+
+**REGLA DE TRAMOS (Regla 6 reforzada):** Los precios de Tramo 2 y Tramo 3 DEBEN provenir de soportes técnicos con estado `verificado` en la Foto de Mercado (200DMA, mínimos previos confirmados, zonas de volumen). Si `soportes = n/d`:
+- No podés proponer "$3.700" ni "-30% desde ATH" ni "nivel psicológico de $X"
+- Reexpresarlos como porcentaje de drawdown arbitrario NO los valida — un drawdown inventado no es un soporte técnico
+- La única salida válida es: "Tramos 2 y 3 no definibles sin datos técnicos — esperá confirmación de soporte antes de definir niveles de entrada"
 
 - Tramo 1 (ahora): X% del capital disponible — condición: [precio actual / contexto actual]
-- Tramo 2: Y% si cae a [precio soporte 1]
-- Tramo 3: Z% si cae a [precio soporte 2 o nivel crítico]
+- Tramo 2: Y% si cae a [precio soporte verificado 1, o "no definible — soportes n/d"]
+- Tramo 3: Z% si cae a [precio soporte verificado 2, o "no definible — soportes n/d"]
 
 **Regla de invalidación:** Esta tesis se invalida si [precio/evento que rompe la lógica].
 **Vehículo en Argentina:** [instrumento concreto + ticker ByMA si aplica]
