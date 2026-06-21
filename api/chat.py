@@ -688,6 +688,16 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
         "search_source": None,
     }
 
+    tools = [{
+        "name": "search_web",
+        "description": SEARCH_TOOL_DESC,
+        "input_schema": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": SEARCH_QUERY_DESC}},
+            "required": ["query"],
+        },
+    }]
+
     # Convert conversation history to Claude format
     claude_msgs = []
     last_user_text = ""
@@ -712,41 +722,71 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
 
     if capa0 != "SIN_ACTIVO" and "---CAPA 0---" in capa0:
-        # Phase 2a: Council Orchestrator — data injected, no tools needed (~20s)
+        # Phase 2a: Council Orchestrator — inject CAPA 0, tools available but search discouraged.
+        # IMPORTANT: tools must be present so the model isn't in an inconsistent state with the
+        # SYSTEM_PROMPT's "BUSCÁ PRIMERO" mandate. The council_system prefix overrides that mandate.
         if claude_msgs and claude_msgs[-1]["role"] == "user":
             claude_msgs[-1]["content"] = (
                 claude_msgs[-1]["content"]
-                + "\n\n[DATOS DE MERCADO VERIFICADOS POR EL AGENTE DE DATOS — NO busques más, usá estos datos directamente como base de la CAPA 0 del Council.]\n"
+                + "\n\n[DATOS DE MERCADO — CAPA 0 VERIFICADA POR EL AGENTE DE DATOS]\n"
                 + capa0
+                + "\n\n[El mandamiento BUSCÁ PRIMERO ya se cumplió en la Fase 1. NO llamar a search_web. Corré el Council de 7 directamente con los datos de arriba.]"
             )
+
+        council_system = (
+            "INSTRUCCIÓN SISTEMA — PRIORIDAD MÁXIMA: El Agente de Datos ya ejecutó las búsquedas. "
+            "Los datos de mercado (CAPA 0) están en el mensaje del usuario. "
+            "El mandamiento BUSCÁ PRIMERO ya se cumplió. "
+            "NO llamar a search_web. Pasá DIRECTAMENTE al análisis del Council de 7.\n\n"
+            + SYSTEM_PROMPT
+        )
 
         payload = {
             "model": claude_model,
             "max_tokens": 8192,
-            "system": SYSTEM_PROMPT,
+            "system": council_system,
+            "tools": tools,
             "messages": claude_msgs,
         }
-        resp = http.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=45)
-        if resp.status_code != 200:
-            raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
 
-        result = resp.json()
-        meta["model"] = result.get("model", claude_model)
-        text_blocks = [b.get("text", "") for b in result.get("content", []) if b.get("type") == "text"]
-        return {"response": " ".join(text_blocks), "meta": meta}
+        MAX_COUNCIL_ITERS = 3  # at most 1 fallback search + 1 generation (+ buffer)
+        for i in range(MAX_COUNCIL_ITERS):
+            send_payload = {k: v for k, v in payload.items() if k != "tools"} if i >= MAX_COUNCIL_ITERS - 1 else payload
+            resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=40)
+            if resp.status_code != 200:
+                raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
+
+            result = resp.json()
+            meta["model"] = result.get("model", claude_model)
+            tool_blocks = [b for b in result.get("content", []) if b.get("type") == "tool_use"]
+            text_blocks = [b.get("text", "") for b in result.get("content", []) if b.get("type") == "text"]
+
+            if tool_blocks and result.get("stop_reason") == "tool_use":
+                tool_results = []
+                for tb in tool_blocks:
+                    if tb["name"] == "search_web":
+                        sr, pages = search_web(tb["input"]["query"], firecrawl_key, serper_key)
+                        meta["firecrawl_used"] = True
+                        meta["firecrawl_searches"] += 1
+                        meta["firecrawl_pages"] += pages
+                        meta["firecrawl_queries"].append(tb["input"]["query"])
+                        if pages > 0 and not meta["search_source"]:
+                            meta["search_source"] = sr.get("source")
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tb["id"],
+                            "content": json.dumps(sr, ensure_ascii=False),
+                        })
+                payload["messages"].append({"role": "assistant", "content": result["content"]})
+                payload["messages"].append({"role": "user", "content": tool_results})
+                continue
+
+            return {"response": " ".join(text_blocks), "meta": meta}
+
+        return {"response": "Error inesperado al generar la respuesta.", "meta": meta}
 
     else:
         # Phase 2b: Single-phase fallback — no specific asset, allow tools (conceptual Q&A / portfolio requests)
-        tools = [{
-            "name": "search_web",
-            "description": SEARCH_TOOL_DESC,
-            "input_schema": {
-                "type": "object",
-                "properties": {"query": {"type": "string", "description": SEARCH_QUERY_DESC}},
-                "required": ["query"],
-            },
-        }]
-
         payload = {
             "model": claude_model,
             "max_tokens": 8192,
