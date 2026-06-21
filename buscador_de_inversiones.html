@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Oracle of Omaha - Consejos de Inversión</title>
+    <title>El Oráculo de los 7 - Consejos de Inversión</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -595,7 +595,7 @@
                 </div>
                 <div id="buttons-container" class="mt-6 flex justify-center space-x-2">
                     <button class="g-button" onclick="submitQuery()">Pedir Consejo</button>
-                    <button class="g-button" onclick="feelingLucky()">Pregunta random</button>
+                    <button class="g-button" onclick="feelingLucky()">Pregunta al Azar</button>
                 </div>
             </div>
         </div>
@@ -759,7 +759,7 @@
                 isChatMode = true;
                 mainContainer.classList.remove('state-home');
                 mainContainer.classList.add('state-chat');
-                document.title = "Oracle of Omaha - Resultados";
+                document.title = "El Oráculo de los 7 - Resultados";
                 // Scroll + focus textarea after CSS layout transition finishes (500ms)
                 setTimeout(() => { scrollToBottom(); chatTextarea.focus(); }, 520);
             }
@@ -780,7 +780,7 @@
             chatTextarea.style.height = 'auto';
             sendBtn.disabled = true;
             updateScrollBtn();
-            document.title = "Oracle of Omaha - Consejos de Inversión";
+            document.title = "El Oráculo de los 7 - Consejos de Inversión";
         }
 
         function feelingLucky() {
@@ -1080,7 +1080,7 @@
             isChatMode = true;
             mainContainer.classList.remove('state-home');
             mainContainer.classList.add('state-chat');
-            document.title = "Oracle of Omaha - Resultados";
+            document.title = "El Oráculo de los 7 - Resultados";
 
             let metaIdx = 0;
             for (const turn of chatHistory) {
