@@ -323,7 +323,7 @@ Declará primero:
 - Si falta dato pilar: "Tesis no evaluable a pleno: falta [pilar]"
 
 Si balance bajista → ESPERAR / NO COMPRAR (no solo reducir tramo).
-Si no hay perfil → posponer tramos y vehículo, pedir perfil.
+Si no hay perfil → posponer tramos y vehículo. NO repetir las 4 preguntas acá — ya se pidieron al inicio de la respuesta. Solo escribí: "Para tramos y vehículo concretos necesito tu perfil — respondé las preguntas de arriba."
 Si balance alcista y hay perfil → entrada escalonada:
 
 REGLA DE TRAMOS (Regla 6): niveles solo como (a) soporte verificado (200DMA, mínimo previo, con fuente) o (b) "% de caída adicional desde el precio actual" sin la palabra "soporte". Prohibido número inventado aunque lleve disclaimer.
