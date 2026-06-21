@@ -32,6 +32,7 @@
             flex-direction: column;
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: 100vh;
+            min-height: 100dvh; /* avoids mobile keyboard/browser-bar overlap */
         }
 
         .state-home {
@@ -317,6 +318,34 @@
             overflow-x: auto;
             margin: 1em 0;
         }
+        /* Code block wrapper with hover copy button */
+        .code-block-wrap { position: relative; }
+        .code-block-wrap pre { margin: 0; }
+        .code-copy-btn {
+            position: absolute;
+            top: 8px; right: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-family: 'Inter', sans-serif;
+            color: #c9d1d9;
+            background: rgba(255,255,255,0.10);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 6px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s;
+        }
+        .code-block-wrap:hover .code-copy-btn,
+        .code-copy-btn:focus { opacity: 1; }
+        .code-copy-btn:hover { background: rgba(255,255,255,0.18); }
+        .code-copy-btn.copied { color: #3fb950; border-color: rgba(63,185,80,0.4); }
+        @media (hover: none) { .code-copy-btn { opacity: 1; } }
+        /* Tables scroll horizontally on narrow screens instead of overflowing */
+        .table-scroll { overflow-x: auto; margin: 1em 0; -webkit-overflow-scrolling: touch; }
+        .table-scroll table { margin: 0; min-width: 100%; }
         .markdown-text pre code { background: transparent; padding: 0; color: inherit; }
         .markdown-text table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 14px; }
         .markdown-text th, .markdown-text td { border: 1px solid #dadce0; padding: 8px 12px; text-align: left; }
@@ -827,6 +856,7 @@
                 const renderedHTML = marked.parse(text);
                 msgDiv.innerHTML =
                     '<div class="content markdown-text">' + renderedHTML + '</div>';
+                enhanceMarkdown(msgDiv.querySelector('.content'));
             }
             chatHistoryContainer.appendChild(msgDiv);
 
@@ -944,6 +974,49 @@
             return String(str).replace(/[&<>'"]/g,
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
             );
+        }
+
+        // Post-process rendered markdown: links → new tab, scrollable tables,
+        // copy button on code blocks.
+        function enhanceMarkdown(contentEl) {
+            if (!contentEl) return;
+
+            contentEl.querySelectorAll('a').forEach(a => {
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+            });
+
+            contentEl.querySelectorAll('table').forEach(table => {
+                if (table.parentElement && table.parentElement.classList.contains('table-scroll')) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'table-scroll';
+                table.parentNode.insertBefore(wrap, table);
+                wrap.appendChild(table);
+            });
+
+            contentEl.querySelectorAll('pre').forEach(pre => {
+                if (pre.parentElement && pre.parentElement.classList.contains('code-block-wrap')) return;
+                const wrap = document.createElement('div');
+                wrap.className = 'code-block-wrap';
+                pre.parentNode.insertBefore(wrap, pre);
+                wrap.appendChild(pre);
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'code-copy-btn';
+                btn.innerHTML = _COPY_ICON + '<span>Copiar</span>';
+                btn.addEventListener('click', () => {
+                    navigator.clipboard.writeText(pre.innerText).then(() => {
+                        btn.classList.add('copied');
+                        btn.innerHTML = _CHECK_ICON + '<span>Copiado</span>';
+                        setTimeout(() => {
+                            btn.classList.remove('copied');
+                            btn.innerHTML = _COPY_ICON + '<span>Copiar</span>';
+                        }, 2000);
+                    }).catch(() => {});
+                });
+                wrap.appendChild(btn);
+            });
         }
 
         function scrollToBottom() {
