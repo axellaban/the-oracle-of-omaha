@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>El Oráculo de los 7 - Consejos de Inversión</title>
+    <title>El Oráculo de los Siete - Consejos de Inversión</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -577,7 +577,7 @@
     <div id="main-container" class="state-home">
         <div id="header-area" class="w-full">
             <div id="logo-container" class="logo-text font-bold text-center select-none" onclick="resetToHome()">
-                <span class="c-blue">E</span><span class="c-red">l</span> <span class="c-yellow">O</span><span class="c-blue">r</span><span class="c-green">á</span><span class="c-red">c</span><span class="c-yellow">u</span><span class="c-blue">l</span><span class="c-red">o</span> <span class="c-yellow">d</span><span class="c-blue">e</span> <span class="c-green">l</span><span class="c-red">o</span><span class="c-yellow">s</span> <span class="c-blue">7</span>
+                <span class="c-blue">E</span><span class="c-red">l</span> <span class="c-yellow">O</span><span class="c-blue">r</span><span class="c-green">á</span><span class="c-red">c</span><span class="c-yellow">u</span><span class="c-blue">l</span><span class="c-red">o</span> <span class="c-yellow">d</span><span class="c-blue">e</span> <span class="c-green">l</span><span class="c-red">o</span><span class="c-yellow">s</span> <span class="c-blue">s</span><span class="c-red">i</span><span class="c-yellow">e</span><span class="c-green">t</span><span class="c-red">e</span>
             </div>
 
             <div id="search-wrapper" class="flex flex-col items-center">
@@ -759,7 +759,7 @@
                 isChatMode = true;
                 mainContainer.classList.remove('state-home');
                 mainContainer.classList.add('state-chat');
-                document.title = "El Oráculo de los 7 - Resultados";
+                document.title = "El Oráculo de los Siete - Resultados";
                 // Scroll + focus textarea after CSS layout transition finishes (500ms)
                 setTimeout(() => { scrollToBottom(); chatTextarea.focus(); }, 520);
             }
@@ -780,7 +780,7 @@
             chatTextarea.style.height = 'auto';
             sendBtn.disabled = true;
             updateScrollBtn();
-            document.title = "El Oráculo de los 7 - Consejos de Inversión";
+            document.title = "El Oráculo de los Siete - Consejos de Inversión";
         }
 
         function feelingLucky() {
@@ -1080,7 +1080,7 @@
             isChatMode = true;
             mainContainer.classList.remove('state-home');
             mainContainer.classList.add('state-chat');
-            document.title = "El Oráculo de los 7 - Resultados";
+            document.title = "El Oráculo de los Siete - Resultados";
 
             let metaIdx = 0;
             for (const turn of chatHistory) {
