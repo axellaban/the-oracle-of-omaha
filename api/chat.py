@@ -400,46 +400,6 @@ SEARCH_QUERY_DESC = (
     "'Tesla TSLA revenue earnings Q1 2025')."
 )
 
-DATA_AGENT_PROMPT = f"""Sos el Agente de Datos del Oráculo de los 7. Tu único trabajo: detectar si hay un activo financiero concreto en la pregunta y, si lo hay, buscar sus datos clave para armar la CAPA 0.
-
-PASO 0 — DETECCIÓN:
-¿Hay un activo financiero concreto (acción, CEDEAR, cripto, bono, commodity, ETF, índice) mencionado en la pregunta?
-- NO hay activo concreto → respondé solo: SIN_ACTIVO
-- SÍ hay activo → continuá con las búsquedas abajo
-
-BÚSQUEDAS (máximo 3, en orden de prioridad):
-1. Precio + ATH + variación: "[activo] price today all-time high drawdown {_YEAR}"
-2. Ciclo: "[activo] 200 day moving average weekly performance {_YEAR}"
-3. Comprador marginal (según clase de activo):
-   - Cripto: "[cripto] spot ETF flows Fear Greed Index {_YEAR}"
-   - Acción/CEDEAR: "[empresa] insider buying institutional flows {_YEAR}"
-   - Commodity: "central bank [commodity] purchases COT report {_YEAR}"
-   - Bono: "[bono] foreign holdings institutional flows {_YEAR}"
-
-REGLAS:
-- Solo datos. Sin análisis ni recomendaciones.
-- Dato no encontrado → "n/d"
-- Calculá siempre: drawdown = (precio_actual − ATH) / ATH × 100
-
-FORMATO DE SALIDA (exacto, sin texto antes ni después):
-
----CAPA 0---
-Activo: [nombre + ticker]
-Precio spot: [valor] ([fuente], [fecha])
-ATH: [valor] ([fecha])
-Drawdown: ([precio] − [ATH]) / [ATH] × 100 = [X%]
-Variación 30d: [%] o n/d
-Variación 1año: [%] o n/d
-vs. 200DMA: [encima/debajo X%] o n/d
-Semanas consecutivas: [N alcistas/bajistas] o n/d
-Sentimiento: [F&G número / COT / otro] ([fuente], [fecha]) o n/d
-Comprador marginal: [dato con cifra] o n/d
-Catalizadores: [evento + fecha] o n/d
-Soportes verificados: [nivel + fuente] o n/d
-Clase: [Acción/CEDEAR/Cripto/Commodity/Bono/ETF/Índice]
----FIN CAPA 0---"""
-
-
 # ─── Serper (Google Search) — fallback ─────────────────────────────────────
 def serper_search(query, api_key):
     if not api_key:
@@ -604,79 +564,7 @@ def call_gemini(messages, api_key, firecrawl_key, serper_key):
     return {"response": "Se excedio el numero maximo de busquedas.", "meta": meta}
 
 
-# ─── Phase 1: Data Agent ────────────────────────────────────────────────────
-def gather_market_data(last_user_msg, api_key, firecrawl_key, serper_key):
-    """Runs the Data Agent: up to 3 web searches, returns (capa0_text, meta_dict)."""
-    claude_model = "claude-sonnet-4-6"
-    searches_meta = {"searches": 0, "pages": 0, "queries": [], "source": None}
-
-    tools = [{
-        "name": "search_web",
-        "description": SEARCH_TOOL_DESC,
-        "input_schema": {
-            "type": "object",
-            "properties": {"query": {"type": "string", "description": SEARCH_QUERY_DESC}},
-            "required": ["query"],
-        },
-    }]
-
-    msgs = [{"role": "user", "content": last_user_msg}]
-    payload = {
-        "model": claude_model,
-        "max_tokens": 2048,
-        "system": DATA_AGENT_PROMPT,
-        "tools": tools,
-        "messages": msgs,
-    }
-    headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
-
-    MAX_ITERS = 5
-    for i in range(MAX_ITERS):
-        no_more_tools = searches_meta["searches"] >= 3 or i >= MAX_ITERS - 1
-        send_payload = {k: v for k, v in payload.items() if k != "tools"} if no_more_tools else payload
-
-        try:
-            resp = http.post(
-                "https://api.anthropic.com/v1/messages",
-                json=send_payload,
-                headers=headers,
-                timeout=15,
-            )
-        except Exception:
-            return "SIN_ACTIVO", searches_meta
-
-        if resp.status_code != 200:
-            return "SIN_ACTIVO", searches_meta
-
-        result = resp.json()
-        tool_blocks = [b for b in result.get("content", []) if b.get("type") == "tool_use"]
-        text_blocks = [b.get("text", "") for b in result.get("content", []) if b.get("type") == "text"]
-
-        if tool_blocks and result.get("stop_reason") == "tool_use":
-            tool_results = []
-            for tb in tool_blocks:
-                if tb["name"] == "search_web":
-                    sr, pages = search_web(tb["input"]["query"], firecrawl_key, serper_key)
-                    searches_meta["searches"] += 1
-                    searches_meta["pages"] += pages
-                    searches_meta["queries"].append(tb["input"]["query"])
-                    if pages > 0 and not searches_meta["source"]:
-                        searches_meta["source"] = sr.get("source")
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tb["id"],
-                        "content": json.dumps(sr, ensure_ascii=False),
-                    })
-            payload["messages"].append({"role": "assistant", "content": result["content"]})
-            payload["messages"].append({"role": "user", "content": tool_results})
-            continue
-
-        return " ".join(text_blocks).strip(), searches_meta
-
-    return "SIN_ACTIVO", searches_meta
-
-
-# ─── Phase 2: Council Orchestrator (Claude) ──────────────────────────────────
+# ─── Claude API ─────────────────────────────────────────────────────────────
 def call_claude(messages, api_key, firecrawl_key, serper_key):
     claude_model = "claude-sonnet-4-6"
     meta = {
@@ -698,138 +586,57 @@ def call_claude(messages, api_key, firecrawl_key, serper_key):
         },
     }]
 
-    # Convert conversation history to Claude format
     claude_msgs = []
-    last_user_text = ""
     for m in messages:
         role = "assistant" if m.get("role") == "model" else "user"
         text = " ".join(p.get("text", "") for p in m.get("parts", []) if "text" in p)
         if text:
             claude_msgs.append({"role": role, "content": text})
-            if role == "user":
-                last_user_text = text
 
-    # Phase 1: Data Agent — gather market data (max 3 searches, ~20s)
-    capa0, data_meta = gather_market_data(last_user_text, api_key, firecrawl_key, serper_key)
-
-    meta["firecrawl_searches"] = data_meta["searches"]
-    meta["firecrawl_pages"] = data_meta["pages"]
-    meta["firecrawl_queries"] = data_meta["queries"]
-    meta["search_source"] = data_meta["source"]
-    if data_meta["searches"] > 0:
-        meta["firecrawl_used"] = True
-
+    payload = {
+        "model": claude_model,
+        "max_tokens": 8192,
+        "system": SYSTEM_PROMPT,
+        "tools": tools,
+        "messages": claude_msgs,
+    }
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
 
-    if capa0 != "SIN_ACTIVO" and "---CAPA 0---" in capa0:
-        # Phase 2a: Council Orchestrator — inject CAPA 0, tools available but search discouraged.
-        # IMPORTANT: tools must be present so the model isn't in an inconsistent state with the
-        # SYSTEM_PROMPT's "BUSCÁ PRIMERO" mandate. The council_system prefix overrides that mandate.
-        if claude_msgs and claude_msgs[-1]["role"] == "user":
-            claude_msgs[-1]["content"] = (
-                claude_msgs[-1]["content"]
-                + "\n\n[DATOS DE MERCADO — CAPA 0 VERIFICADA POR EL AGENTE DE DATOS]\n"
-                + capa0
-                + "\n\n[El mandamiento BUSCÁ PRIMERO ya se cumplió en la Fase 1. NO llamar a search_web. Corré el Council de 7 directamente con los datos de arriba.]"
-            )
+    MAX_ITERS = 7
+    for i in range(MAX_ITERS):
+        send_payload = {k: v for k, v in payload.items() if k != "tools"} if i == MAX_ITERS - 1 else payload
+        resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=40)
+        if resp.status_code != 200:
+            raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
 
-        council_system = (
-            "INSTRUCCIÓN SISTEMA — PRIORIDAD MÁXIMA: El Agente de Datos ya ejecutó las búsquedas. "
-            "Los datos de mercado (CAPA 0) están en el mensaje del usuario. "
-            "El mandamiento BUSCÁ PRIMERO ya se cumplió. "
-            "NO llamar a search_web. Pasá DIRECTAMENTE al análisis del Council de 7.\n\n"
-            + SYSTEM_PROMPT
-        )
+        result = resp.json()
+        meta["model"] = result.get("model", claude_model)
+        tool_blocks = [b for b in result.get("content", []) if b.get("type") == "tool_use"]
+        text_blocks = [b.get("text", "") for b in result.get("content", []) if b.get("type") == "text"]
 
-        payload = {
-            "model": claude_model,
-            "max_tokens": 8192,
-            "system": council_system,
-            "tools": tools,
-            "messages": claude_msgs,
-        }
+        if tool_blocks and result.get("stop_reason") == "tool_use":
+            tool_results = []
+            for tb in tool_blocks:
+                if tb["name"] == "search_web":
+                    sr, pages = search_web(tb["input"]["query"], firecrawl_key, serper_key)
+                    meta["firecrawl_used"] = True
+                    meta["firecrawl_searches"] += 1
+                    meta["firecrawl_pages"] += pages
+                    meta["firecrawl_queries"].append(tb["input"]["query"])
+                    if pages > 0 and not meta["search_source"]:
+                        meta["search_source"] = sr.get("source")
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tb["id"],
+                        "content": json.dumps(sr, ensure_ascii=False),
+                    })
+            payload["messages"].append({"role": "assistant", "content": result["content"]})
+            payload["messages"].append({"role": "user", "content": tool_results})
+            continue
 
-        MAX_COUNCIL_ITERS = 3  # at most 1 fallback search + 1 generation (+ buffer)
-        for i in range(MAX_COUNCIL_ITERS):
-            send_payload = {k: v for k, v in payload.items() if k != "tools"} if i >= MAX_COUNCIL_ITERS - 1 else payload
-            resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=40)
-            if resp.status_code != 200:
-                raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
+        return {"response": " ".join(text_blocks), "meta": meta}
 
-            result = resp.json()
-            meta["model"] = result.get("model", claude_model)
-            tool_blocks = [b for b in result.get("content", []) if b.get("type") == "tool_use"]
-            text_blocks = [b.get("text", "") for b in result.get("content", []) if b.get("type") == "text"]
-
-            if tool_blocks and result.get("stop_reason") == "tool_use":
-                tool_results = []
-                for tb in tool_blocks:
-                    if tb["name"] == "search_web":
-                        sr, pages = search_web(tb["input"]["query"], firecrawl_key, serper_key)
-                        meta["firecrawl_used"] = True
-                        meta["firecrawl_searches"] += 1
-                        meta["firecrawl_pages"] += pages
-                        meta["firecrawl_queries"].append(tb["input"]["query"])
-                        if pages > 0 and not meta["search_source"]:
-                            meta["search_source"] = sr.get("source")
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tb["id"],
-                            "content": json.dumps(sr, ensure_ascii=False),
-                        })
-                payload["messages"].append({"role": "assistant", "content": result["content"]})
-                payload["messages"].append({"role": "user", "content": tool_results})
-                continue
-
-            return {"response": " ".join(text_blocks), "meta": meta}
-
-        return {"response": "Error inesperado al generar la respuesta.", "meta": meta}
-
-    else:
-        # Phase 2b: Single-phase fallback — no specific asset, allow tools (conceptual Q&A / portfolio requests)
-        payload = {
-            "model": claude_model,
-            "max_tokens": 8192,
-            "system": SYSTEM_PROMPT,
-            "tools": tools,
-            "messages": claude_msgs,
-        }
-
-        MAX_ITERS = 5
-        for i in range(MAX_ITERS):
-            send_payload = {k: v for k, v in payload.items() if k != "tools"} if i == MAX_ITERS - 1 else payload
-            resp = http.post("https://api.anthropic.com/v1/messages", json=send_payload, headers=headers, timeout=40)
-            if resp.status_code != 200:
-                raise Exception("Claude API error " + str(resp.status_code) + ": " + resp.text[:300])
-
-            result = resp.json()
-            meta["model"] = result.get("model", claude_model)
-            tool_blocks = [b for b in result.get("content", []) if b.get("type") == "tool_use"]
-            text_blocks = [b.get("text", "") for b in result.get("content", []) if b.get("type") == "text"]
-
-            if tool_blocks and result.get("stop_reason") == "tool_use":
-                tool_results = []
-                for tb in tool_blocks:
-                    if tb["name"] == "search_web":
-                        sr, pages = search_web(tb["input"]["query"], firecrawl_key, serper_key)
-                        meta["firecrawl_used"] = True
-                        meta["firecrawl_searches"] += 1
-                        meta["firecrawl_pages"] += pages
-                        meta["firecrawl_queries"].append(tb["input"]["query"])
-                        if pages > 0 and not meta["search_source"]:
-                            meta["search_source"] = sr.get("source")
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tb["id"],
-                            "content": json.dumps(sr, ensure_ascii=False),
-                        })
-                payload["messages"].append({"role": "assistant", "content": result["content"]})
-                payload["messages"].append({"role": "user", "content": tool_results})
-                continue
-
-            return {"response": " ".join(text_blocks), "meta": meta}
-
-        return {"response": "Error inesperado al generar la respuesta.", "meta": meta}
+    return {"response": "Error inesperado al generar la respuesta.", "meta": meta}
 
 
 # ─── Route ──────────────────────────────────────────────────────────────────
